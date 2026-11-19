@@ -1,4 +1,6 @@
-# The edge (decision 5): port 8081, the same URLs whichever implementation is active.
+# The edge (decision 5): port 8081, the same URLs whichever implementation is active, and a
+# PostSync smoke test through it. Sync it after every switch, once the new side is Healthy:
+# the smoke test then checks the side that now answers.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

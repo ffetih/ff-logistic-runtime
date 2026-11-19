@@ -4,3 +4,18 @@ selector:
   ff-logistic/edge: "true"
 port: 8081
 nodePort: 30081            # host port 8081 (deploy/cluster/k3d-config.yaml)
+
+# After a sync of this Application: the same checks through the edge, for either side. Run it
+# after every switch (S01-09): sync the new side's Applications, then this one.
+smokeTest:
+  image: curlimages/curl:8.22.0
+  activeDeadlineSeconds: 120
+  ttlSecondsAfterFinished: 86400
+  token:
+    url: http://identity:8085/sessions
+    secret: smoke-test-user
+  # token|status|path|text, as in the service chart's smoke test
+  checks:
+    - {path: /actuator/health/readiness, status: 200, contains: '"status":"UP"'}
+    - {path: /api/v1/me, status: 401}
+    - {path: /api/v1/me, status: 200, token: true, contains: '"tenantId":"ff-eu-freight"'}
