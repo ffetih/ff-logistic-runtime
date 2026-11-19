@@ -1,0 +1,32 @@
+# Identity service, the Keycloak facade both implementations call. The chart is
+# deploy/charts/ff-service; the three values files under deploy/apps/identity override it.
+# The last file wins.
+#
+# Manual sync like the rest. Keycloak is already wave -1, so this Application is created
+# after that one. The image tag "local" has to be imported into the cluster before a sync
+# can start a pod.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: identity
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/charts/ff-service
+    helm:
+      releaseName: identity
+      valueFiles:
+        - ../../apps/identity/values.yaml
+        - ../../apps/identity/values-local.yaml
+        - ../../apps/identity/image-local.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
