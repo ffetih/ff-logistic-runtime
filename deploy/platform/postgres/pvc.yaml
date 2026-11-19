@@ -1,0 +1,16 @@
+# The data. k3s provisions it on the node (local-path). Argo CD never prunes it and keeps it
+# when the Application is deleted: losing the database must take a deliberate kubectl delete.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  labels:
+    app.kubernetes.io/name: postgres
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

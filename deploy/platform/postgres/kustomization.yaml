@@ -1,0 +1,12 @@
+# PostgreSQL 17 for the local cluster. Applied by the postgres Application
+# (deploy/argocd/apps/postgres.yaml) into the ff-logistics namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - secret.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml

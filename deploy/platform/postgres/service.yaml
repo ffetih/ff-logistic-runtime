@@ -1,0 +1,18 @@
+# postgres.ff-logistics.svc:5432 inside the cluster; NodePort 30432, which k3d publishes on
+# host port 5432, for psql and for the app started from the IDE.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+      nodePort: 30432

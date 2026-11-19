@@ -1,0 +1,26 @@
+# PostgreSQL for the FF Logistics services. Sync it before the services that use it; wave -1
+# also makes the root create this Application before theirs.
+#
+# Manual sync like the rest. The volume claim carries Prune=false and Delete=false, so
+# neither a sync with prune nor deleting this Application removes the data.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
