@@ -1,0 +1,6 @@
+# The edge: one Service on host port 8081 that selects whichever implementation is running
+# (decision 5). The modulith's pods carry the label, and on the services side the gateway's.
+selector:
+  ff-logistic/edge: "true"
+port: 8081
+nodePort: 30081            # host port 8081 (deploy/cluster/k3d-config.yaml)

@@ -15,6 +15,10 @@ imagePullSecrets: []        # only needed while the GHCR package is private
 replicaCount: 1
 revisionHistoryLimit: 2
 
+# Extra labels on the pods only (not on the selectors). The edge Service selects
+# ff-logistic/edge: "true": the modulith's pods carry it, and on the services side the gateway's.
+podLabels: {}
+
 containerPort: 8080
 
 service:

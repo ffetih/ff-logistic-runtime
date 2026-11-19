@@ -3,6 +3,9 @@
 metadata:
   labels:
     {{- include "ff-service.labels" . | nindent 4 }}
+    {{- with .Values.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   # Otherwise Kubernetes adds <SERVICE>_PORT=tcp://<ip>:<port> for every Service in the
   # namespace, and Spring reads e.g. LOGISTICS_APP_PORT as a property it does not expect.
