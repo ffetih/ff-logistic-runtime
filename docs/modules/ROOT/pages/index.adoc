@@ -17,6 +17,8 @@ What FF Logistic runs but does not write: one k3d cluster, Argo CD, and the plat
 | `rustfs` | RustFS 1.0.6, the S3 object store, from the upstream chart | -1 | 9000
 | `argo-rollouts` | Argo Rollouts 1.10, canary releases with analysis | |
 | `identity` | The identity service (built in ff-logistic-shared) | | 8085
+| `edge` | The one entry point, whichever implementation is active; its PostSync smoke test checks the side that answers | | 8081
+| `ff-implementation` | The switch: an ApplicationSet that renders the active side's Applications (`logistics-app`, or `warehousing`, `transportation`, `routing`, `gateway`) | |
 |===
 
 Wave -1 Applications are synced before the services that need them. Every workload Application syncs by hand; only `ff-root` syncs itself, and it holds Argo CD objects only.
@@ -28,8 +30,32 @@ flowchart TB
   A --> R["ff-root<br/>app of apps"]
   R --> P["platform, wave -1<br/>postgres · keycloak · kafka · rustfs"]
   R --> AR[argo-rollouts]
-  R --> S["services<br/>identity · the active implementation"]
+  R --> S["identity · edge"]
+  R --> AS["ff-implementation<br/>ApplicationSet"]
+  AS --> IMPL["the active side's Applications"]
 ....
+
+[[switch]]
+== The switch
+
+`deploy/implementation.yaml` names the active side: `active: modulith` or `active: services`. The `ff-implementation` ApplicationSet is a matrix of two git generators: the first reads that file, the second lists `deploy/apps/*` in the repository named after the answer (`ff-logistic-{{ .active }}`). Each generated Application takes the chart from here and its values from the side's repository, carries the label `ff-logistic/implementation`, and has the resources finalizer, so the Application that disappears takes its workloads with it.
+
+[source,bash]
+----
+# switch to the services (or back: active: modulith)
+sed -i 's/^active: .*/active: services/' deploy/implementation.yaml
+git commit -am "Switch to the services" && git push
+
+# within a minute the ApplicationSet has replaced the Applications; sync the new ones
+argocd app list -l ff-logistic/implementation=services
+argocd app sync -l ff-logistic/implementation=services
+
+# then the edge: its smoke test checks the side that now answers
+argocd app sync edge
+kubectl -n ff-logistics logs -l app.kubernetes.io/name=edge-smoke-test --tail=20
+----
+
+Both sides use the same tables, so nothing is migrated twice: each area's history table already shows its scripts as done.
 
 == The service chart
 
