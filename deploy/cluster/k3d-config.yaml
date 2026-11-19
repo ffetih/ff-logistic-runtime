@@ -1,0 +1,68 @@
+# Local cluster: one k3s server that also runs the workloads.
+#
+#   k3d cluster create --config deploy/cluster/k3d-config.yaml
+#   k3d cluster delete ff-logistic
+#
+# Services are reached through NodePorts. Each one is published on a fixed host
+# port below, so the same URLs work from Windows, WSL and the IDE. Adding a port
+# later needs `k3d cluster edit ff-logistic --port-add ...`, which restarts the
+# load balancer, so they are all reserved here up front.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: ff-logistic
+servers: 1
+agents: 0
+image: rancher/k3s:v1.37.2-k3s1
+ports:
+  - port: 8080:30080    # Argo CD UI
+    nodeFilters:
+      - server:0
+  - port: 8081:30081    # logistics app
+    nodeFilters:
+      - server:0
+  - port: 8085:30085    # identity service
+    nodeFilters:
+      - server:0
+  - port: 8086:30086    # analytics loader
+    nodeFilters:
+      - server:0
+  - port: 8087:30087    # partner gateway
+    nodeFilters:
+      - server:0
+  - port: 8088:30088    # Superset
+    nodeFilters:
+      - server:0
+  - port: 8090:30090    # console
+    nodeFilters:
+      - server:0
+  - port: 8180:30180    # Keycloak, for runs from the IDE
+    nodeFilters:
+      - server:0
+  - port: 9000:30900    # RustFS S3 API
+    nodeFilters:
+      - server:0
+  - port: 9094:30094    # Kafka external listener, for runs from the IDE
+    nodeFilters:
+      - server:0
+  - port: 5432:30432    # PostgreSQL
+    nodeFilters:
+      - server:0
+  - port: 16686:30186    # Jaeger UI
+    nodeFilters:
+      - server:0
+options:
+  k3d:
+    wait: true
+  k3s:
+    extraArgs:
+      # NodePorts only: no ingress controller, no service load balancer
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:0
+      - arg: --disable=servicelb
+        nodeFilters:
+          - server:0
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
