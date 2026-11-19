@@ -1,10 +1,14 @@
-# Identity service, the Keycloak facade both implementations call. The chart is
-# deploy/charts/ff-service; the three values files under deploy/apps/identity override it.
-# The last file wins.
+# Identity service, the Keycloak facade both implementations call.
+#
+# Two sources (decision 8: deploy values live next to the code):
+#   1. the chart, from this repository: deploy/charts/ff-service
+#   2. ff-logistic-shared as $values: deploy/apps/identity, where the service is built.
+#      Its CI writes the image tag there, so it never has to write to this repository.
+# The last values file wins: image-local.yaml over values-local.yaml over values.yaml over the
+# chart's defaults.
 #
 # Manual sync like the rest. Keycloak is already wave -1, so this Application is created
-# after that one. The image tag "local" has to be imported into the cluster before a sync
-# can start a pod.
+# after that one.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -14,16 +18,19 @@ metadata:
     app.kubernetes.io/part-of: ff-logistics
 spec:
   project: ff-logistics
-  source:
-    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
-    targetRevision: main
-    path: deploy/charts/ff-service
-    helm:
-      releaseName: identity
-      valueFiles:
-        - ../../apps/identity/values.yaml
-        - ../../apps/identity/values-local.yaml
-        - ../../apps/identity/image-local.yaml
+  sources:
+    - repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+      targetRevision: main
+      path: deploy/charts/ff-service
+      helm:
+        releaseName: identity
+        valueFiles:
+          - $values/deploy/apps/identity/values.yaml
+          - $values/deploy/apps/identity/values-local.yaml
+          - $values/deploy/apps/identity/image-local.yaml
+    - repoURL: https://github.com/ffetih/ff-logistic-shared.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: ff-logistics
