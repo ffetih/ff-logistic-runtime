@@ -1,0 +1,25 @@
+# Argo Rollouts: the controller that runs Rollout objects (blue-green, canary, analysis).
+# Cluster-wide (CRDs, ClusterRoles), so it lives in the default project, not ff-logistics.
+#
+# Sync this before any Application that contains a Rollout: until the CRDs exist, Argo CD
+# cannot even compare a Rollout manifest. Server-side apply because the Rollout CRD is
+# too large for the last-applied annotation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/argo-rollouts
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true

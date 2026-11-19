@@ -1,0 +1,57 @@
+{{- if .Values.smokeTest.enabled }}
+# The smoke test's script and its checks. A plain resource, applied in the sync phase, so the
+# PostSync Job always reads the checks of the commit being synced.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ff-service.name" . }}-smoke-test
+  labels:
+    app.kubernetes.io/name: {{ include "ff-service.name" . }}-smoke-test
+    app.kubernetes.io/part-of: ff-logistics
+data:
+  # One check per line: token|status|path|text. "token" sends the signed-in user's bearer
+  # token, "none" sends none. The check passes on that HTTP status, and if text is not empty,
+  # only when the body contains it.
+  checks: |
+    {{- range .Values.smokeTest.checks }}
+    {{ if .token }}token{{ else }}none{{ end }}|{{ .status }}|{{ .path }}|{{ .contains | default "" }}
+    {{- end }}
+  smoke-test.sh: |
+    #!/bin/sh
+    # Calls the service the way a client would, right after Argo CD has synced it. Prints one
+    # line per check and exits non-zero if any check failed: Argo CD then marks the sync failed.
+    set -u
+    failed=0
+    TOKEN=""
+
+    if [ -n "${TOKEN_URL:-}" ]; then
+      body=$(curl -sS --max-time 10 -H 'Content-Type: application/json' \
+        -d "{\"username\":\"$SMOKE_USERNAME\",\"password\":\"$SMOKE_PASSWORD\"}" "$TOKEN_URL") \
+        || { echo "FAIL sign-in: no answer from $TOKEN_URL"; exit 1; }
+      TOKEN=$(printf '%s' "$body" | sed -n 's/.*"accessToken" *: *"\([^"]*\)".*/\1/p')
+      [ -n "$TOKEN" ] || { echo "FAIL sign-in as $SMOKE_USERNAME: no access token"; exit 1; }
+      echo "ok   sign-in as $SMOKE_USERNAME"
+    fi
+
+    while IFS='|' read -r auth status path contains; do
+      [ -n "$path" ] || continue
+      if [ "$auth" = token ] && [ -z "$TOKEN" ]; then
+        echo "FAIL GET $path: needs a token, and smokeTest.token.url is not set"
+        failed=1
+        continue
+      fi
+      if [ "$auth" = token ]; then set -- -H "Authorization: Bearer $TOKEN"; else set --; fi
+      code=$(curl -sS -o /tmp/body --max-time 10 -w '%{http_code}' "$@" "$BASE_URL$path") || code=000
+      if [ "$code" != "$status" ]; then
+        echo "FAIL GET $path: $code, expected $status"
+        failed=1
+      elif [ -n "$contains" ] && ! grep -qF "$contains" /tmp/body; then
+        echo "FAIL GET $path: $code, but the body has no $contains"
+        failed=1
+      else
+        echo "ok   GET $path ($auth): $code"
+      fi
+    done < /smoke-test/checks
+
+    exit $failed
+{{- end }}

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ff-service
+description: One Spring Boot service of the FF platform. Every service uses this chart with its own values.
+type: application
+version: 0.1.0

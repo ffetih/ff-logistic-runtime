@@ -1,0 +1,19 @@
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "canary") .Values.rollout.canary.analysis.enabled }}
+# The new version during a canary release. Argo Rollouts points its selector at the canary
+# pods only, so the analysis measures them and nothing else.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ff-service.name" . }}-canary
+  labels:
+    {{- include "ff-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "ff-service.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

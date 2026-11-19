@@ -1,0 +1,84 @@
+{{- if .Values.smokeTest.enabled }}
+# Argo CD runs this after the sync, once every resource is Healthy. For a Rollout that means
+# after the last canary step: the test calls the release that now takes all traffic. A failed
+# check fails the Job, and the sync is marked Failed. Nothing is rolled back; the failure is
+# the signal to look, or to roll back by hand. A canary that aborts never becomes Healthy,
+# so the test does not run on it.
+# A new name on every sync (generateName): with one fixed name, Argo CD could read the Job
+# of the sync before (still being deleted) and report its result for this one. Kubernetes
+# deletes the Job a day after it finishes, so a failed run's log can still be read.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: {{ include "ff-service.name" . }}-smoke-test-
+  labels:
+    app.kubernetes.io/name: {{ include "ff-service.name" . }}-smoke-test
+    app.kubernetes.io/part-of: ff-logistics
+    app.kubernetes.io/version: {{ .Values.image.tag | trunc 63 | quote }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+spec:
+  ttlSecondsAfterFinished: {{ .Values.hookJobTtlSeconds }}
+  # A smoke test that only passes on a second try is a failed smoke test.
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.smokeTest.activeDeadlineSeconds }}
+  template:
+    metadata:
+      # Not the service's own labels: its Services must never select this pod.
+      labels:
+        app.kubernetes.io/name: {{ include "ff-service.name" . }}-smoke-test
+        app.kubernetes.io/part-of: ff-logistics
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: smoke-test
+          image: {{ .Values.smokeTest.image | quote }}
+          command: ["sh", "/smoke-test/smoke-test.sh"]
+          env:
+            # The Service, not a pod: what every client of the service reaches. Its short name,
+            # because the Job runs in the same namespace: the first search domain in the pod's
+            # resolv.conf answers it at once. A full name without a trailing dot is tried with
+            # every search domain first (ndots 5), and the Alpine (musl) resolver in the curl
+            # image gives up as soon as one of those lookups fails.
+            - name: BASE_URL
+              value: "http://{{ include "ff-service.name" . }}:{{ .Values.service.port }}"
+            {{- with .Values.smokeTest.token }}
+            {{- if .url }}
+            - name: TOKEN_URL
+              value: {{ .url | quote }}
+            - name: SMOKE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secret }}
+                  key: username
+            - name: SMOKE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secret }}
+                  key: password
+            {{- end }}
+            {{- end }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: smoke-test
+              mountPath: /smoke-test
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: smoke-test
+          configMap:
+            name: {{ include "ff-service.name" . }}-smoke-test
+        - name: tmp
+          emptyDir: {}
+{{- end }}

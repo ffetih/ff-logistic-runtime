@@ -1,0 +1,87 @@
+= FF Logistic: Cluster Guide
+:doctype: book
+
+[preface]
+== About this guide
+
+This guide is for the local k3d cluster `ff-logistic`.
+It covers the one setup that otherwise has to be repeated on every command: making `k3d-ff-logistic` the current kubectl context on both WSL and Windows.
+
+The cluster is created from `deploy/cluster/k3d-config.yaml`.
+k3d writes its kubeconfig into the Linux home (`~/.kube/config` in Ubuntu) and, because that file sets `switchCurrentContext: true`, WSL kubectl already points at `k3d-ff-logistic` after `k3d cluster create`.
+Windows kubectl reads a different file, `C:\Users\<you>\.kube\config`, and does not see the WSL one.
+
+[[current-context]]
+== Current context
+
+=== Windows kubectl still talks to another cluster
+
+Symptom:: `kubectl config current-context` on Windows prints `microshift` (or `docker-desktop`). `kubectl get ns` fails against `https://127.0.0.1.nip.io:6443`. The same command in WSL lists `argocd`, `default`, `kube-system`.
+Check:: `kubectl config get-contexts`. On Windows, `k3d-ff-logistic` is missing. In WSL it is present and marked current.
+Cause:: k3d runs in WSL and updates only the WSL kubeconfig. IntelliJ can show `k3d-ff-logistic` as current because the IDE was pointed at `\\wsl.localhost\Ubuntu\home\<linux-user>\.kube\config`. That selection is the tool window's cluster, not Windows kubectl's current context. The checkbox that copies clusters into `C:\Users\<you>\.kube\config` does not always land; confirm with `kubectl config get-contexts` afterwards.
+
+The command that selects a context is `kubectl config use-context`.
+It only works when the name is already in the file it is reading.
+`kubectl config set-context` edits a context's cluster and user; it does not switch, and it cannot invent the certificate data k3d generated.
+
+Fix:: Copy the one context out of WSL, merge it into the Windows kubeconfig, then select it.
+Keep the other contexts (`microshift`, `docker-desktop`). Take a copy of the Windows file first.
+
+From PowerShell:
+
+[source,powershell]
+----
+$kube = Join-Path $env:USERPROFILE '.kube'
+$main = Join-Path $kube 'config'
+$extra = Join-Path $kube 'k3d-ff-logistic.kubeconfig'
+$merged = Join-Path $kube 'config.merged'
+
+Copy-Item $main "$main.bak" -Force
+wsl -e bash -lc "k3d kubeconfig get ff-logistic > /mnt/c/Users/$($env:USERNAME)/.kube/k3d-ff-logistic.kubeconfig"
+
+cmd /c "set KUBECONFIG=$main;$extra&& kubectl config view --raw --flatten > $merged"
+Get-Content $merged -TotalCount 1   # must be: apiVersion: v1
+
+Move-Item $merged $main -Force
+Remove-Item $extra -Force
+kubectl config use-context k3d-ff-logistic
+----
+
+Write the flattened file with `cmd` redirection.
+Assigning `kubectl config view` to a PowerShell variable and writing it back has produced a kubeconfig kubectl then refuses to load (`yaml: mapping values are not allowed in this context`).
+If that happens, put `$main.bak` back over `$main` and run the block again.
+Do not replace `config` until the merged file starts with `apiVersion: v1`.
+
+In WSL, if the current context has drifted:
+
+[source,bash]
+----
+kubectl config use-context k3d-ff-logistic
+----
+
+Check, with no `--context`, from both shells:
+
+[source,bash]
+----
+kubectl config current-context    # k3d-ff-logistic
+kubectl get ns                    # argocd, default, kube-system, ...
+----
+
+Repeat the merge after `k3d cluster delete ff-logistic` and a new `k3d cluster create`.
+The API address in the exported kubeconfig is chosen by k3d and changes with the cluster.
+To go back to a context that stayed in the file: `kubectl config use-context microshift`.
+
+=== IntelliJ does not list the cluster
+
+Point *Add Cluster* at the WSL kubeconfig, `\\wsl.localhost\Ubuntu\home\<linux-user>\.kube\config` (the `\\wsl$\Ubuntu\...` form is the same file).
+Select `k3d-ff-logistic` only.
+The Windows file above is what `kubectl` in a Windows terminal uses; the IDE can keep reading the WSL file directly.
+
+[[argo-ui]]
+== Opening the Argo CD UI
+
+The UI is published on the host as `8080`, mapped to the `argocd-server` NodePort `30080`.
+No port-forward.
+
+Open `http://127.0.0.1:8080`.
+`http://localhost:8080` fails on Windows with `ERR_EMPTY_RESPONSE`: `localhost` resolves to `::1` first, and k3d publishes the port on IPv4 only.

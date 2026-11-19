@@ -1,0 +1,16 @@
+{{- if not .Values.rollout.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ff-service.name" . }}
+  labels:
+    {{- include "ff-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "ff-service.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "ff-service.podTemplate" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if .Values.rollout.enabled }}
+# Same pod as the Deployment would have; Argo Rollouts decides how a new version replaces
+# the old one. Needs the Argo Rollouts CRDs (deploy/platform/argo-rollouts).
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "ff-service.name" . }}
+  labels:
+    {{- include "ff-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  progressDeadlineSeconds: {{ .Values.rollout.progressDeadlineSeconds }}
+  # A new version that does not become ready in time is aborted instead of waiting forever.
+  progressDeadlineAbort: true
+  selector:
+    matchLabels:
+      {{- include "ff-service.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "ff-service.podTemplate" . | nindent 4 }}
+  strategy:
+    {{- if eq .Values.rollout.strategy "canary" }}
+    canary:
+      {{- if .Values.rollout.canary.analysis.enabled }}
+      # Rollouts points each Service's selector at its own pods: the main Service at the
+      # stable version only, the canary Service at the new version only. Users stay on the
+      # stable version while the analysis talks to the canary alone.
+      stableService: {{ include "ff-service.name" . }}
+      canaryService: {{ include "ff-service.name" . }}-canary
+      {{- end }}
+      {{- with .Values.rollout.canary.steps }}
+      steps:
+        {{- toYaml . | nindent 8 }}
+      {{- else }}
+      # No steps: pods are replaced like a rolling update.
+      {}
+      {{- end }}
+    {{- else if eq .Values.rollout.strategy "blueGreen" }}
+    # The new version starts next to the old one and is reachable on the preview Service
+    # only. Promotion switches the active Service to it in one step.
+    blueGreen:
+      activeService: {{ include "ff-service.name" . }}
+      previewService: {{ include "ff-service.name" . }}-preview
+      autoPromotionEnabled: {{ .Values.rollout.blueGreen.autoPromotionEnabled }}
+      scaleDownDelaySeconds: {{ .Values.rollout.blueGreen.scaleDownDelaySeconds }}
+    {{- else }}
+    {{- fail (printf "rollout.strategy %q is not supported" .Values.rollout.strategy) }}
+    {{- end }}
+{{- end }}

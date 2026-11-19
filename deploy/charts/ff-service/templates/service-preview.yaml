@@ -1,0 +1,19 @@
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "blueGreen") }}
+# The new version during a blue-green release, before promotion. Argo Rollouts points its
+# selector at the new pods; inside the cluster only (kubectl port-forward to try it).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ff-service.name" . }}-preview
+  labels:
+    {{- include "ff-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "ff-service.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

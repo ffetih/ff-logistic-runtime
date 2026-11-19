@@ -1,0 +1,30 @@
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "canary") .Values.rollout.canary.analysis.enabled }}
+{{- $a := .Values.rollout.canary.analysis }}
+# Asks the canary pods whether this release may take traffic: the release health group of
+# the app, through the canary Service. Every answer has to be UP; one DOWN fails the
+# analysis, and a failed analysis aborts the rollout and scales the canary back to zero.
+# The call comes from the Rollouts controller in its own namespace, so the Service needs its
+# full name, and the trailing dot makes that name absolute. Without it the name has fewer
+# dots than ndots (5), and the resolver first tries it with every search domain of the
+# controller's pod. That walk took 3-5 s on k3d (most likely a search domain from the host,
+# answered outside the cluster), enough to miss the 5 s timeout of a measurement.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "ff-service.name" . }}-release
+  labels:
+    {{- include "ff-service.labels" . | nindent 4 }}
+spec:
+  metrics:
+    - name: release-health
+      initialDelay: {{ $a.initialDelay }}
+      interval: {{ $a.interval }}
+      count: {{ $a.count }}
+      failureLimit: 0
+      successCondition: result == "UP"
+      provider:
+        web:
+          url: "http://{{ include "ff-service.name" . }}-canary.{{ .Release.Namespace }}.svc.cluster.local.:{{ .Values.service.port }}{{ $a.path }}"
+          jsonPath: "{$.status}"
+          timeoutSeconds: 5
+{{- end }}

@@ -1,0 +1,134 @@
+# Defaults for every FF service. Per service, deploy/apps/<name>/values.yaml overrides these,
+# then values-local.yaml, then image-local.yaml (Helm: the last values file wins).
+#
+# The release name (in Argo CD: the Application name) is the name of the Deployment, the
+# Service and the container.
+
+image:
+  repository: ""            # required, e.g. ghcr.io/ffetih/ff-logistic-shared/identity
+  tag: ""                   # required; CI writes the commit SHA into image-local.yaml
+  pullPolicy: IfNotPresent  # tags are never reused, so a cached image is always the right one
+
+imagePullSecrets: []        # only needed while the GHCR package is private
+
+replicaCount: 1
+revisionHistoryLimit: 2
+
+containerPort: 8080
+
+service:
+  type: ClusterIP
+  port: 8080
+  nodePort: null            # with type NodePort: a fixed port, published on the host by k3d
+
+# Argo Rollouts. Off: a plain Deployment. On: a Rollout with exactly the same pod, so
+# turning it on changes how new versions arrive, not what runs.
+rollout:
+  enabled: false
+  strategy: canary          # canary | blueGreen
+  progressDeadlineSeconds: 300
+  blueGreen:
+    # false: a new version waits on the preview Service until someone promotes it
+    autoPromotionEnabled: false
+    # The old pods stay this long after the switch, so going back needs no new pods
+    scaleDownDelaySeconds: 30
+  canary:
+    steps: []               # no steps: like a rolling update
+    # On: a <name>-canary Service and an AnalysisTemplate <name>-release, which reads the
+    # release health group through that Service. Reference it from a step:
+    #   - analysis: {templates: [{templateName: <name>-release}]}
+    analysis:
+      enabled: false
+      path: /actuator/health/release
+      # The first measurement waits this long after the canary pod is ready. It was added
+      # for a slow first answer that turned out to be a slow DNS lookup (see the template);
+      # it stays as a margin for the pod's first seconds.
+      initialDelay: 10s
+      interval: 10s
+      count: 3              # three answers, all of them UP, or the release aborts
+
+# Schema migrations as an Argo CD PreSync hook: before the new pods start, a Job runs the
+# same image with this Spring profile, migrates and exits. The pods then run without Flyway.
+# The old version keeps serving while the hook runs, so a migration has to work for both.
+# Stopping a pod. Kubernetes takes it out of the Services and starts stopping it at the same
+# moment, but the routing (kube-proxy on every node) learns of it a little later: for that
+# moment, new connections still go to its IP. Without a pause the process is already gone and
+# they hang until they time out. With it, Kubernetes runs the preStop sleep first; the pod still
+# answers what arrives, then gets SIGTERM, and Spring Boot's graceful shutdown (the default)
+# finishes the requests in flight, for up to 30 s. The grace period covers both.
+shutdown:
+  preStopSleepSeconds: 10
+  terminationGracePeriodSeconds: 45
+
+# The hook Jobs (migration, smoke test) get a new name on every sync and are deleted by
+# Kubernetes this long after they finish, passed or failed: a day to read their logs.
+hookJobTtlSeconds: 86400
+
+# The service's own database on the shared PostgreSQL server, created by a PreSync hook before
+# the migration when it is missing (templates/job-database.yaml). adminSecret holds the server's
+# superuser (keys username and password); the service itself may connect with other credentials.
+database:
+  create: false
+  name: ""
+  host: postgres
+  adminSecret: postgres-credentials
+  image: docker.io/library/postgres:17-alpine
+
+migration:
+  enabled: false
+  profile: migrate
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
+
+# A smoke test as an Argo CD PostSync hook: after a sync, once the service is Healthy, a Job
+# calls it through its Service and fails the sync if any check fails. curl in a shell script;
+# the script and the checks are a ConfigMap of the chart.
+smokeTest:
+  enabled: false
+  image: curlimages/curl:8.22.0
+  activeDeadlineSeconds: 120
+  # Sign in first, for checks that need a bearer token: POST {"username", "password"} to url,
+  # which answers {"accessToken": ...} (the identity service's /sessions). The Secret holds
+  # the keys username and password. No url: no sign-in.
+  token:
+    url: ""
+    secret: ""
+  # - {path: /api/v1/me, status: 200, token: true, contains: '"tenantId":"ff-eu-freight"'}
+  checks: []
+
+# Extra container environment, as Kubernetes EnvVar entries (name/value or name/valueFrom)
+env: []
+
+probes:
+  liveness: /actuator/health/liveness
+  readiness: /actuator/health/readiness
+  # A JVM service needs time to start. The startup probe holds the other two back until the
+  # app answers, so a slow start is not mistaken for a hung process: 5 s x 36 = 3 minutes.
+  startup:
+    periodSeconds: 5
+    failureThreshold: 36
+  readinessPeriodSeconds: 10
+  livenessPeriodSeconds: 20
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+
+# Same as the Dockerfile's USER. The root filesystem is read-only; /tmp is an emptyDir,
+# because Tomcat writes its work files there.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]

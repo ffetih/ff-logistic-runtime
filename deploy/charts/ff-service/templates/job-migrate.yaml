@@ -1,0 +1,55 @@
+{{- if .Values.migration.enabled }}
+# Argo CD runs this before it applies anything else in the sync (PreSync) and waits for it.
+# A failed migration fails the sync, so no new pod ever starts on a schema it does not have.
+# A new name on every sync (generateName): Argo CD then always watches this sync's Job, never
+# one left from the sync before. Kubernetes deletes it a day after it finishes.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: {{ include "ff-service.name" . }}-migrate-
+  labels:
+    app.kubernetes.io/name: {{ include "ff-service.name" . }}-migrate
+    app.kubernetes.io/part-of: ff-logistics
+    app.kubernetes.io/version: {{ .Values.image.tag | trunc 63 | quote }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  ttlSecondsAfterFinished: {{ .Values.hookJobTtlSeconds }}
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      # Not the service's own labels: its Services must never select this pod.
+      labels:
+        app.kubernetes.io/name: {{ include "ff-service.name" . }}-migrate
+        app.kubernetes.io/part-of: ff-logistics
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.migration.profile | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
