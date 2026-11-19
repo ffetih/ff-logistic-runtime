@@ -15,6 +15,10 @@ imagePullSecrets: []        # only needed while the GHCR package is private
 replicaCount: 1
 revisionHistoryLimit: 2
 
+# Extra labels on the pods only (not on the selectors). The edge Service selects
+# ff-logistic/edge: "true": the modulith's pods carry it, and on the services side the gateway's.
+podLabels: {}
+
 containerPort: 8080
 
 service:
@@ -49,7 +53,7 @@ rollout:
       count: 3              # three answers, all of them UP, or the release aborts
 
 # Schema migrations as an Argo CD PreSync hook: before the new pods start, a Job runs the
-# same image with this Spring profile, migrates and exits. The pods then run without Flyway.
+# same image with this Spring profile, migrates and exits. The pods then run without migrating.
 # The old version keeps serving while the hook runs, so a migration has to work for both.
 # Stopping a pod. Kubernetes takes it out of the Services and starts stopping it at the same
 # moment, but the routing (kube-proxy on every node) learns of it a little later: for that

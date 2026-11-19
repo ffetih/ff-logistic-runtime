@@ -1,0 +1,65 @@
+# After a sync of the edge Application: the checks through the edge. A new name on every sync
+# (generateName), deleted a day after it finishes, like the service chart's smoke test.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: edge-smoke-test-
+  labels:
+    app.kubernetes.io/name: edge-smoke-test
+    app.kubernetes.io/part-of: ff-logistics
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+spec:
+  ttlSecondsAfterFinished: {{ .Values.smokeTest.ttlSecondsAfterFinished }}
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.smokeTest.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edge-smoke-test
+        app.kubernetes.io/part-of: ff-logistics
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: smoke-test
+          image: {{ .Values.smokeTest.image | quote }}
+          command: ["sh", "/smoke-test/smoke-test.sh"]
+          env:
+            # The short name: same namespace (see the service chart's smoke test on why).
+            - name: BASE_URL
+              value: "http://edge:{{ .Values.port }}"
+            - name: TOKEN_URL
+              value: {{ .Values.smokeTest.token.url | quote }}
+            - name: SMOKE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.smokeTest.token.secret }}
+                  key: username
+            - name: SMOKE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.smokeTest.token.secret }}
+                  key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: smoke-test
+              mountPath: /smoke-test
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: smoke-test
+          configMap:
+            name: edge-smoke-test
+        - name: tmp
+          emptyDir: {}

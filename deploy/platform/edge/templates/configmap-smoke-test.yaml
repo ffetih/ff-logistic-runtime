@@ -1,0 +1,51 @@
+# The edge smoke test's script and checks. The script is the service chart's
+# (deploy/charts/ff-service/templates/configmap-smoke-test.yaml), called with the edge as base URL.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-smoke-test
+  labels:
+    app.kubernetes.io/name: edge-smoke-test
+    app.kubernetes.io/part-of: ff-logistics
+data:
+  checks: |
+    {{- range .Values.smokeTest.checks }}
+    {{ if .token }}token{{ else }}none{{ end }}|{{ .status }}|{{ .path }}|{{ .contains | default "" }}
+    {{- end }}
+  smoke-test.sh: |
+    #!/bin/sh
+    # Calls the edge the way a client would. One line per check; non-zero exit if any failed,
+    # and Argo CD then marks the sync failed. The last line says which side answered.
+    set -u
+    failed=0
+    TOKEN=""
+
+    body=$(curl -sS --max-time 10 -H 'Content-Type: application/json' \
+      -d "{\"username\":\"$SMOKE_USERNAME\",\"password\":\"$SMOKE_PASSWORD\"}" "$TOKEN_URL") \
+      || { echo "FAIL sign-in: no answer from $TOKEN_URL"; exit 1; }
+    TOKEN=$(printf '%s' "$body" | sed -n 's/.*"accessToken" *: *"\([^"]*\)".*/\1/p')
+    [ -n "$TOKEN" ] || { echo "FAIL sign-in as $SMOKE_USERNAME: no access token"; exit 1; }
+    echo "ok   sign-in as $SMOKE_USERNAME"
+
+    while IFS='|' read -r auth status path contains; do
+      [ -n "$path" ] || continue
+      if [ "$auth" = token ]; then set -- -H "Authorization: Bearer $TOKEN"; else set --; fi
+      code=$(curl -sS -o /tmp/body --max-time 10 -w '%{http_code}' "$@" "$BASE_URL$path") || code=000
+      if [ "$code" != "$status" ]; then
+        echo "FAIL GET $path: $code, expected $status"
+        failed=1
+      elif [ -n "$contains" ] && ! grep -qF "$contains" /tmp/body; then
+        echo "FAIL GET $path: $code, but the body has no $contains"
+        failed=1
+      else
+        echo "ok   GET $path ($auth): $code"
+      fi
+    done < /smoke-test/checks
+
+    # The modulith answers /actuator/info with its build; the gateway has no such endpoint.
+    if curl -sS -o /tmp/info --max-time 10 -w '%{http_code}' "$BASE_URL/actuator/info" | grep -q 200; then
+      echo "info the modulith answered: $(cat /tmp/info)"
+    else
+      echo "info the services side answered (through the gateway)"
+    fi
+    exit $failed

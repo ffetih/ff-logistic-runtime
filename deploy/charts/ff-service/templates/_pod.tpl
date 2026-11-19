@@ -3,6 +3,9 @@
 metadata:
   labels:
     {{- include "ff-service.labels" . | nindent 4 }}
+    {{- with .Values.podLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   # Otherwise Kubernetes adds <SERVICE>_PORT=tcp://<ip>:<port> for every Service in the
   # namespace, and Spring reads e.g. LOGISTICS_APP_PORT as a property it does not expect.
@@ -28,8 +31,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- if .Values.migration.enabled }}
-        # Flyway runs in the PreSync hook (job-migrate.yaml); the pods only use the schema.
+        # Migrations run in the PreSync hook (job-migrate.yaml); the pods only use the schema.
+        # SPRING_FLYWAY_ENABLED for Spring Boot's own Flyway (one location), FF_MIGRATIONS_ENABLED
+        # for the business areas' (MigrationArea in ff-base-persistence).
         - name: SPRING_FLYWAY_ENABLED
+          value: "false"
+        - name: FF_MIGRATIONS_ENABLED
           value: "false"
         {{- end }}
       {{- end }}

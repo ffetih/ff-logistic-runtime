@@ -1,0 +1,19 @@
+# The edge. It never changes when the implementation does: it selects pods by label, and the
+# switch decides which pods exist.
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge
+  labels:
+    app.kubernetes.io/name: edge
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  type: NodePort
+  selector:
+    {{- toYaml .Values.selector | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      # By name: the modulith and the gateway both call their container port "http" (8081).
+      targetPort: http
+      nodePort: {{ .Values.nodePort }}

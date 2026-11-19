@@ -18,7 +18,7 @@ ports:
   - port: 8080:30080    # Argo CD UI
     nodeFilters:
       - server:0
-  - port: 8081:30081    # logistics app
+  - port: 8081:30081    # the edge: whichever implementation is active
     nodeFilters:
       - server:0
   - port: 8085:30085    # identity service

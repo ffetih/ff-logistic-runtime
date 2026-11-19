@@ -1,0 +1,74 @@
+# The switch (decision 4). One Application per folder under deploy/apps/* in the repository of
+# the active implementation, as named in deploy/implementation.yaml (in this repository):
+#
+#   active: modulith  ->  ff-logistic-modulith  deploy/apps/logistics-app
+#   active: services  ->  ff-logistic-services  deploy/apps/{warehousing,transportation,routing,gateway}
+#
+# A matrix: the first generator reads the switch, the second lists the active side's apps, with
+# the repository named after the first generator's answer. A new service is a new folder there.
+#
+# Each Application is multi-source (decision 8): the chart from this repository, the values from
+# the side's own. They sync by hand, like every workload. When the switch changes, the other
+# side's Applications are no longer generated: the ApplicationSet deletes them, and their
+# resources finalizer takes the workloads with them.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ff-implementation
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+              revision: main
+              files:
+                - path: deploy/implementation.yaml
+              # Both generators are git generators and both would produce "path"; a matrix refuses
+              # the same key twice. This one's path parameters become switch.path.*; its file's
+              # content (active) stays as it is.
+              pathParamPrefix: switch
+              requeueAfterSeconds: 60
+          - git:
+              repoURL: 'https://github.com/ffetih/ff-logistic-{{ .active }}.git'
+              revision: main
+              directories:
+                - path: deploy/apps/*
+              requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: '{{ .path.basename }}'
+      labels:
+        app.kubernetes.io/part-of: ff-logistics
+        ff-logistic/implementation: '{{ .active }}'
+      # Deleting the Application (the switch moved on) deletes what it deployed.
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: ff-logistics
+      sources:
+        - repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+          targetRevision: main
+          path: deploy/charts/ff-service
+          helm:
+            releaseName: '{{ .path.basename }}'
+            # The last file wins: image-local.yaml over values-local.yaml over values.yaml over
+            # the chart's defaults.
+            valueFiles:
+              - '$values/deploy/apps/{{ .path.basename }}/values.yaml'
+              - '$values/deploy/apps/{{ .path.basename }}/values-local.yaml'
+              - '$values/deploy/apps/{{ .path.basename }}/image-local.yaml'
+        - repoURL: 'https://github.com/ffetih/ff-logistic-{{ .active }}.git'
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: ff-logistics
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
