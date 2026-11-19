@@ -1,0 +1,27 @@
+# Kafka, one KRaft broker, for events that leave the logistics app (S8). Sync it before the
+# services that produce or consume; wave -1, like postgres.
+#
+# Manual sync like the rest. The volume comes from the StatefulSet's claim template: Kubernetes
+# creates the claim (data-kafka-0), not Argo CD, so neither a prune nor deleting this
+# Application removes the topics.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kafka
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/kafka
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,10 @@
+# One Kafka broker (KRaft: it is its own controller, no ZooKeeper) for the local cluster.
+# Applied by the kafka Application (deploy/argocd/apps/kafka.yaml) into the ff-logistics namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - service.yaml
+  - statefulset.yaml
