@@ -1,7 +1,5 @@
-= FF Logistic: Cluster Guide
-:doctype: book
+= Cluster Guide
 
-[preface]
 == About this guide
 
 This guide is for the local k3d cluster `ff-logistic`.
