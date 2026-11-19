@@ -42,10 +42,12 @@ data:
       fi
     done < /smoke-test/checks
 
-    # The modulith answers /actuator/info with its build; the gateway has no such endpoint.
-    if curl -sS -o /tmp/info --max-time 10 -w '%{http_code}' "$BASE_URL/actuator/info" | grep -q 200; then
-      echo "info the modulith answered: $(cat /tmp/info)"
-    else
-      echo "info the services side answered (through the gateway)"
-    fi
+    # The modulith answers /actuator/info with its build; the gateway answers 404 (it has no
+    # such endpoint). No answer at all (000) means nothing is behind the edge.
+    code=$(curl -sS -o /tmp/info --max-time 10 -w '%{http_code}' "$BASE_URL/actuator/info") || code=000
+    case "$code" in
+      200) echo "info the modulith answered: $(cat /tmp/info)" ;;
+      404) echo "info the services side answered (through the gateway)" ;;
+      *)   echo "info nothing behind the edge answered ($code)" ;;
+    esac
     exit $failed
