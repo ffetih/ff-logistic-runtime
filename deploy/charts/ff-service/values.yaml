@@ -1,5 +1,6 @@
-# Defaults for every FF service. Per service, deploy/apps/<name>/values.yaml overrides these,
-# then values-local.yaml, then image-local.yaml (Helm: the last values file wins).
+# Defaults for every FF service. Per service, deploy/apps/<name>/values.yaml in the repository
+# that builds the service overrides these, then values-local.yaml, then image-local.yaml (Helm:
+# the last values file wins). The Application in deploy/argocd/apps reads them as $values.
 #
 # The release name (in Argo CD: the Application name) is the name of the Deployment, the
 # Service and the container.

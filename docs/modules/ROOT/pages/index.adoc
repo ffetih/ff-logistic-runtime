@@ -1,0 +1,48 @@
+= Runtime
+:description: The cluster, Argo CD and the platform both implementations run on.
+
+What FF Logistic runs but does not write: one k3d cluster, Argo CD, and the platform services. Everything here is applied from Git by Argo CD, except the cluster and Argo CD itself.
+
+== What runs
+
+[cols="2,3,1,2",options="header"]
+|===
+| Application | What | Wave | Host port
+
+| `ff-root` | The app of apps: creates every Application in `deploy/argocd/apps`, and syncs itself | | 
+| `argocd` | Argo CD 3.6.1, managing its own install | | 8080
+| `postgres` | PostgreSQL 17: `ff_logistics`; `ff_logistics_analytics` comes with the analytics loader (S6) | -1 | 5432
+| `keycloak` | Keycloak 26.8 with the `ff-logistics` realm | -1 | 8180
+| `kafka` | Kafka 4.2, one KRaft broker | -1 | 9094
+| `rustfs` | RustFS 1.0.6, the S3 object store, from the upstream chart | -1 | 9000
+| `argo-rollouts` | Argo Rollouts 1.10, canary releases with analysis | |
+| `identity` | The identity service (built in ff-logistic-shared) | | 8085
+|===
+
+Wave -1 Applications are synced before the services that need them. Every workload Application syncs by hand; only `ff-root` syncs itself, and it holds Argo CD objects only.
+
+[mermaid]
+....
+flowchart TB
+  K["k3d cluster ff-logistic<br/>one server node"] --> A[Argo CD]
+  A --> R["ff-root<br/>app of apps"]
+  R --> P["platform, wave -1<br/>postgres · keycloak · kafka · rustfs"]
+  R --> AR[argo-rollouts]
+  R --> S["services<br/>identity · the active implementation"]
+....
+
+== The service chart
+
+`deploy/charts/ff-service` deploys every Spring service of both implementations: a Deployment or an Argo Rollouts Rollout (canary with analysis), its Services, a PreSync database-creation Job and Flyway migration Job, and a PostSync smoke test. Each service's values live in the repository that builds it (xref:ff-logistic::decisions.adoc#d8[decision 8]).
+
+== Starting from nothing
+
+[source,bash]
+----
+k3d cluster create --config deploy/cluster/k3d-config.yaml
+kubectl apply -k deploy/argocd --server-side --force-conflicts
+# Argo CD: http://127.0.0.1:8080, user admin,
+# password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+----
+
+Then sync the wave -1 Applications, then the services. The xref:cluster-guide.adoc[Cluster Guide] covers the kubectl context on WSL and Windows and the Argo CD UI.

@@ -1,8 +1,0 @@
-# Identity service, every environment. Overrides deploy/charts/ff-service/values.yaml.
-image:
-  repository: ghcr.io/ffetih/ff-logistic-shared/identity
-
-containerPort: 8085
-
-service:
-  port: 8085
