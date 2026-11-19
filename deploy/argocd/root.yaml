@@ -1,0 +1,26 @@
+# App of apps. Every Application and AppProject under deploy/argocd/apps is created from Git
+# by this one, so adding a service means adding a file there, not running kubectl.
+#
+# It syncs on its own: it only holds Argo CD objects, never workloads. The Applications it
+# creates have no automated sync, so a change to a workload still waits for an operator.
+# Pruning one of them removes the Application object only; with no resources finalizer,
+# the workload it deployed stays until it is deleted on purpose.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ff-root
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

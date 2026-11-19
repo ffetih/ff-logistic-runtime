@@ -1,0 +1,26 @@
+# Argo CD manages its own installation: deploy/argocd (pinned release, local patches,
+# the root Application). An upgrade is a commit that changes the version in
+# deploy/argocd/kustomization.yaml, then a manual sync of this Application.
+#
+# Server-side apply, as for the first install: the Application CRD is too large for the
+# last-applied annotation. Every object in deploy/argocd carries Prune=false, so a mistake
+# in that folder can never make Argo CD delete itself.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true

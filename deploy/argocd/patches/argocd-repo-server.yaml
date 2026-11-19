@@ -1,0 +1,11 @@
+# Same reason as argocd-application-controller.yaml: the repo server caches what it read
+# from Git for timeout.reconciliation, and reads the value only at start.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+spec:
+  template:
+    metadata:
+      annotations:
+        ff-logistics/reconciliation: 60s-jitter-10s

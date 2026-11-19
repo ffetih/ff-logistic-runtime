@@ -1,0 +1,30 @@
+# Argo CD itself and the root Application (the app of apps). Applied by hand once,
+# from WSL at the repository root:
+#
+#   kubectl apply -k deploy/argocd --server-side --force-conflicts
+#
+# Server-side apply: the Application CRD is larger than the last-applied
+# annotation a client-side apply keeps. After that first apply, Argo CD manages
+# this folder itself (apps/argocd.yaml): an upgrade is a commit that changes the
+# version below, then a sync.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argocd
+
+# Argo CD manages this folder itself (apps/argocd.yaml). Nothing here may ever be pruned.
+commonAnnotations:
+  argocd.argoproj.io/sync-options: Prune=false
+
+resources:
+  - namespace.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.6.1/manifests/install.yaml
+  - root.yaml
+
+patches:
+  - path: patches/argocd-cmd-params-cm.yaml
+  - path: patches/argocd-server-service.yaml
+  - path: patches/argocd-dex-server.yaml
+  - path: patches/argocd-cm.yaml
+  - path: patches/argocd-application-controller.yaml
+  - path: patches/argocd-repo-server.yaml

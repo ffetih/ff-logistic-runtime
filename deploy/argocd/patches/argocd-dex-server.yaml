@@ -1,0 +1,8 @@
+# Sign-in is the local admin account only, so Dex (SSO) does not need to run.
+# Scale it back to 1 when an SSO connector is configured in argocd-cm.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-dex-server
+spec:
+  replicas: 0

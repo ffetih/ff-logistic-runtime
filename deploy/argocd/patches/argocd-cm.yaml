@@ -1,0 +1,14 @@
+# How often Argo CD asks Git whether something changed. The release default is 180 s plus up
+# to 60 s of jitter, so a merged change could wait four minutes before an Application turned
+# OutOfSync. One small repository on a local cluster can afford a poll every minute.
+#
+# The application controller and the repo server read these keys into environment variables
+# when they start, so a change here only takes effect after they restart: see
+# argocd-application-controller.yaml and argocd-repo-server.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  timeout.reconciliation: 60s
+  timeout.reconciliation.jitter: 10s

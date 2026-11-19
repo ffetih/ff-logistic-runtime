@@ -1,0 +1,25 @@
+# What the FF Logistics Applications may do: deploy from this repository and the upstream
+# charts listed below, into the ff-logistics namespace only. Wave -1, so the project exists
+# before the Applications that name it.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ff-logistics
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: FF Logistics services on the local cluster
+  sourceRepos:
+    - https://github.com/ffetih/ff-logistic-runtime.git
+    - https://github.com/ffetih/ff-logistic-shared.git
+    - https://github.com/ffetih/ff-logistic-modulith.git
+    - https://github.com/ffetih/ff-logistic-services.git
+    - https://charts.rustfs.com                 # RustFS (deploy/argocd/apps/rustfs.yaml)
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: ff-logistics
+  # CreateNamespace=true needs to create the Namespace, which is cluster-scoped.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

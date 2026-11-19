@@ -1,0 +1,12 @@
+# The controller reads timeout.reconciliation from argocd-cm only at start. A changed pod
+# template is what restarts a pod, so this annotation carries the value: change it together
+# with argocd-cm.yaml, and the sync of the argocd Application restarts the controller.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: argocd-application-controller
+spec:
+  template:
+    metadata:
+      annotations:
+        ff-logistics/reconciliation: 60s-jitter-10s

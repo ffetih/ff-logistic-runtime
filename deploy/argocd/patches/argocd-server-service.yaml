@@ -1,0 +1,15 @@
+# Publish the UI and API on NodePort 30080, which k3d maps to host port 8080.
+# protocol is part of the merge key for Service ports: without it the patch
+# does not match the existing http port and nodePort is silently dropped.
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+      nodePort: 30080

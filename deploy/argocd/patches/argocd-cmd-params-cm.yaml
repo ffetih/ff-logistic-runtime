@@ -1,0 +1,8 @@
+# The UI is reached over plain HTTP on localhost:8080. Without this the server
+# redirects to HTTPS with a self-signed certificate. Local cluster only.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  server.insecure: "true"
