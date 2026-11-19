@@ -1,0 +1,24 @@
+# Keycloak with the ff-logistics realm. Only the identity service talks to it. Sync it before
+# the identity service; wave -1 also makes the root create this Application before the
+# services' Applications.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/keycloak
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

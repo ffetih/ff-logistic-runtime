@@ -1,0 +1,21 @@
+# Keycloak 26 with the ff-logistics realm. Applied by the keycloak Application
+# (deploy/argocd/apps/keycloak.yaml) into the ff-logistics namespace.
+#
+# The realm file becomes a ConfigMap whose name carries a hash of its content: a change to the
+# realm renames the ConfigMap, which changes the pod template, so Keycloak restarts and imports
+# the new realm. user-profile.json is not deployed; it is the realm's user profile as a file of
+# its own, and a test checks that the realm file embeds exactly this.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: keycloak-realm
+    files:
+      - ff-logistics-realm.json

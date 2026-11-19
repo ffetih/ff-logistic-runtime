@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.8.2
+          imagePullPolicy: IfNotPresent
+          args:
+            # Dev mode: an embedded database inside the container. The realm file is imported at
+            # every start; users created later through the API do not survive a restart.
+            - start-dev
+            - --import-realm
+            # One public address, the one a browser on this machine can open: every page, every
+            # redirect and the issuer of every token is http://localhost:8180. The services
+            # inside the cluster still call http://keycloak:8080; backchannel-dynamic answers
+            # those calls (token, JWKS) on the address they came in on.
+            - --hostname=http://localhost:8180
+            - --hostname-backchannel-dynamic=true
+            - --http-enabled=true
+            - --health-enabled=true
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-credentials
+                  key: admin-username
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-credentials
+                  key: admin-password
+          volumeMounts:
+            # Only the realm file goes into the import folder; anything else there would be
+            # imported too.
+            - name: realm
+              mountPath: /opt/keycloak/data/import/ff-logistics-realm.json
+              subPath: ff-logistics-realm.json
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 48
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1536Mi
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
