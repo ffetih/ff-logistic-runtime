@@ -1,0 +1,52 @@
+# Values for the upstream RustFS chart (https://charts.rustfs.com, chart rustfs), read by the
+# rustfs Application (deploy/argocd/apps/rustfs.yaml) as $values/deploy/platform/rustfs/values.yaml.
+# Only what differs from the chart's defaults; `helm show values rustfs --repo https://charts.rustfs.com`
+# lists the rest.
+
+# Names: Deployment rustfs, Service rustfs-svc, claim rustfs-data.
+fullnameOverride: rustfs
+
+# One pod, one drive: a development store. The default is a distributed cluster of 4 pods.
+mode:
+  standalone:
+    enabled: true
+  distributed:
+    enabled: false
+replicaCount: 1
+
+# The access and secret key, from deploy/platform/rustfs/secret.yaml. The chart refuses to
+# render with no keys or its well-known defaults.
+secret:
+  existingSecret: rustfs-credentials
+
+config:
+  rustfs:
+    # Empty: logs go to stdout (kubectl logs) instead of a second volume.
+    obs_log_directory: ""
+
+# S3 API on host port 9000 (k3d maps 9000 to NodePort 30900): presigned links point there.
+# The console's NodePort is not mapped to the host; reach it with a port-forward.
+service:
+  type: NodePort
+  endpoint:
+    nodePort: 30900
+  console:
+    nodePort: 30901
+
+ingress:
+  enabled: false
+
+# The data: never pruned by a sync, kept when the Application is deleted (as postgres-data).
+storageclass:
+  name: local-path
+  dataStorageSize: 2Gi
+  pvcAnnotations:
+    data:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi

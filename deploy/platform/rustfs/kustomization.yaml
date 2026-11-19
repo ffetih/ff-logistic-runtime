@@ -1,0 +1,10 @@
+# What the rustfs Application deploys from this repository besides the upstream chart: the
+# credentials. values.yaml next to this file is the chart's values file, read by the
+# Application through $values; it is not a manifest, so it is not listed here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - secret.yaml

@@ -1,0 +1,41 @@
+# RustFS, the S3-compatible object store for documents (proof-of-delivery signatures, e-CMRs).
+#
+# Three sources in one Application:
+#   1. the upstream chart, unchanged, at a pinned version
+#   2. this repository as $values, so the chart reads deploy/platform/rustfs/values.yaml
+#   3. this repository's deploy/platform/rustfs: the credentials Secret
+# Upgrading RustFS is a change of targetRevision here; the chart is never copied into Git.
+#
+# Wave -1, like postgres: sync it before the services that store documents. Manual sync like
+# the rest. The data claim carries Prune=false and Delete=false (values.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rustfs
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: ff-logistics
+  sources:
+    - repoURL: https://charts.rustfs.com
+      chart: rustfs
+      targetRevision: 1.0.6
+      helm:
+        releaseName: rustfs
+        valueFiles:
+          - $values/deploy/platform/rustfs/values.yaml
+    - repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+      targetRevision: main
+      path: deploy/platform/rustfs
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
