@@ -2,7 +2,11 @@
 #
 # The repositories it builds on (ff-logistic-base, and ff-logistic-shared for the applications)
 # are cloned from their main branch and installed first, without their tests: their own CI ran
-# those. All six repositories are public, so no token is needed to clone them.
+# those. Repositories its tests only read (siblings: the identity tests read runtime's realm
+# file) are cloned too. All are cloned next to the checked-out one, under their short names, as
+# they sit locally (D:\dev\workspace\ff-logistic\base, ...\runtime): a test that finds a file
+# by walking up to a sibling folder finds it here too. All six repositories are public, so no
+# token is needed to clone them.
 #
 # The jars are uploaded as the artifact "jars", with their paths, for java-publish.yml.
 #
@@ -11,6 +15,7 @@
 #       uses: ffetih/ff-logistic-runtime/.github/workflows/java-build.yml@main
 #       with:
 #         prebuild: base shared
+#         siblings: runtime
 name: Java build (reusable)
 
 on:
@@ -18,6 +23,10 @@ on:
     inputs:
       prebuild:
         description: The repositories this one builds on, in build order, by short name ("base shared")
+        type: string
+        default: ""
+      siblings:
+        description: Repositories its tests read files from, cloned next to it but not built ("runtime")
         type: string
         default: ""
 
@@ -51,15 +60,21 @@ jobs:
             sleep 15
           done
           exit 1
+      - name: Check out the repositories next to this one
+        if: inputs.prebuild != '' || inputs.siblings != ''
+        run: |
+          set -euo pipefail
+          for repo in ${{ inputs.prebuild }} ${{ inputs.siblings }}; do
+            git clone --quiet --depth 1 "https://github.com/ffetih/ff-logistic-$repo.git" "../$repo"
+            echo "../$repo: ff-logistic-$repo at $(git -C "../$repo" rev-parse --short HEAD)"
+          done
       - name: Build what it builds on
         if: inputs.prebuild != ''
         run: |
           set -euo pipefail
           for repo in ${{ inputs.prebuild }}; do
             echo "::group::ff-logistic-$repo"
-            git clone --quiet --depth 1 "https://github.com/ffetih/ff-logistic-$repo.git" "$RUNNER_TEMP/$repo"
-            echo "ff-logistic-$repo at $(git -C "$RUNNER_TEMP/$repo" rev-parse --short HEAD)"
-            "$RUNNER_TEMP/$repo/build.sh" -q -DskipTests
+            "../$repo/build.sh" -q -DskipTests
             echo "::endgroup::"
           done
       - name: Build and test
