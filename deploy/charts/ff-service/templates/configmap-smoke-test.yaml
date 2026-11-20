@@ -33,6 +33,19 @@ data:
       echo "ok   sign-in as $SMOKE_USERNAME"
     fi
 
+    # A Service created by this very sync may not be routable yet: kube-proxy writes the rules
+    # for a new ClusterIP a moment after the pods are ready, and until then a connection just
+    # times out. Wait (up to 30 s) until the Service accepts a connection, whatever it answers;
+    # then each check runs once. An application that answers wrongly still fails; nothing
+    # answering at all still fails, after the wait.
+    i=0
+    until curl -s -o /dev/null --connect-timeout 2 --max-time 3 "$BASE_URL/"; do
+      i=$((i+1))
+      if [ "$i" -ge 15 ]; then echo "FAIL no connection to $BASE_URL after 30 s"; exit 1; fi
+      sleep 2
+    done
+    echo "ok   $BASE_URL accepts connections"
+
     while IFS='|' read -r auth status path contains; do
       [ -n "$path" ] || continue
       if [ "$auth" = token ] && [ -z "$TOKEN" ]; then
