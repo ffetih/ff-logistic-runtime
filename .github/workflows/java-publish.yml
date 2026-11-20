@@ -1,0 +1,118 @@
+# Reusable: publish a repository's images to GHCR and record their tags in the same repository
+# (decision 8: deploy values live next to the code, so CI never writes to another repository).
+#
+# An image is built only when this push changed something it is built from: its own folder or
+# the repository's build files (pom.xml, the Maven Wrapper, build.sh). A change to values or
+# docs alone keeps the current image and starts no rollout. force: true builds every image: for
+# a change in ff-logistic-base or ff-logistic-shared, which this repository cannot see.
+#
+# Each published image's tag is written into deploy/apps/<name>/image-local.yaml and committed
+# to main with [skip ci]. Argo CD then shows that Application OutOfSync until someone syncs it.
+#
+#   jobs:
+#     publish:
+#       needs: build
+#       if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+#       permissions: {contents: write, packages: write}
+#       uses: ffetih/ff-logistic-runtime/.github/workflows/java-publish.yml@main
+#       with:
+#         images: |
+#           logistics-app logistics-app
+name: Publish images (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: One image per line, "name folder"; the folder holds its Dockerfile
+        type: string
+        required: true
+      force:
+        description: Build every image, changed or not
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    name: Publish images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The whole history, so this push can be compared with what main was before it.
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: jars
+      - name: Build and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          FORCE: ${{ inputs.force }}
+          IMAGES: ${{ inputs.images }}
+        run: |
+          set -euo pipefail
+          # Without a usable "before" (a manual run, the first push, a forced push), build all.
+          if [ "$FORCE" = true ] || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            BEFORE=""
+          fi
+          changed() {
+            [ -z "$BEFORE" ] || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "$1" pom.xml .mvn mvnw build.sh
+          }
+          # ghcr.io/<owner>/<repository>/<image>: a new package is created by, and linked to,
+          # this repository, so the job's token may write to it.
+          prefix="$(echo "ghcr.io/${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          : > "$RUNNER_TEMP/published"
+          while read -r name folder; do
+            [ -n "$name" ] || continue
+            if ! changed "$folder"; then
+              echo "$name: nothing under $folder or the build files changed; keeping its image"
+              continue
+            fi
+            image="$prefix/$name:$GITHUB_SHA"
+            echo "::group::$image"
+            # The source label links the package to this repository on GitHub.
+            docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              -t "$image" "$folder"
+            docker push "$image"
+            echo "::endgroup::"
+            echo "$name" >> "$RUNNER_TEMP/published"
+          done <<< "$IMAGES"
+      - name: Record the tags
+        run: |
+          set -euo pipefail
+          if [ ! -s "$RUNNER_TEMP/published" ]; then
+            echo "no image was published; nothing to record"
+            exit 0
+          fi
+          git fetch --quiet origin main
+          # Another push landed meanwhile: its own run records newer tags; this one stays out.
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "origin/main has moved past $GITHUB_SHA; leaving the recorded tags alone"
+            exit 0
+          fi
+          git checkout --quiet -B main
+          while read -r name; do
+            # The whole file: it holds the tag and nothing a person edits.
+            printf '%s\n' \
+              "# Written by CI on every push to main that changes this image: the tag it published" \
+              "# (ff-logistic-runtime/.github/workflows/java-publish.yml). For an image built and" \
+              "# loaded with k3d image import instead, set the tag to \"local\" here by hand." \
+              "image:" \
+              "  tag: $GITHUB_SHA" > "deploy/apps/$name/image-local.yaml"
+          done < "$RUNNER_TEMP/published"
+          git add deploy/apps/*/image-local.yaml
+          if git diff --cached --quiet; then
+            echo "the tags already record $GITHUB_SHA"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --quiet -m "Publish image tags for ${GITHUB_SHA::7}" -m "[skip ci]"
+          git push --quiet origin HEAD:main
+          echo "recorded: $(tr '\n' ' ' < "$RUNNER_TEMP/published")"
