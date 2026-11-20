@@ -1,8 +1,10 @@
 # Reusable: build and test one FF Logistic repository, the way its own build.sh does locally.
 #
 # The repositories it builds on (ff-logistic-base, and ff-logistic-shared for the applications)
-# are cloned from their main branch and installed first, without their tests: their own CI ran
-# those. Repositories its tests only read (siblings: the identity tests read runtime's realm
+# are cloned and installed first, without their tests: their own CI ran those. Each is cloned at
+# the branch this build runs for when it has one of that name (a sprint's pull requests,
+# sprint/s05 in every repository, build against each other and can go green together), and at
+# main otherwise. A build on main clones main: merging still follows the build order. Repositories its tests only read (siblings: the identity tests read runtime's realm
 # file) are cloned too. All are cloned next to the checked-out one, under their short names, as
 # they sit locally (D:\dev\workspace\ff-logistic\base, ...\runtime): a test that finds a file
 # by walking up to a sibling folder finds it here too. All six repositories are public, so no
@@ -64,9 +66,17 @@ jobs:
         if: inputs.prebuild != '' || inputs.siblings != ''
         run: |
           set -euo pipefail
+          # The pull request's source branch, or the pushed branch
+          branch="${{ github.head_ref || github.ref_name }}"
           for repo in ${{ inputs.prebuild }} ${{ inputs.siblings }}; do
-            git clone --quiet --depth 1 "https://github.com/ffetih/ff-logistic-$repo.git" "../$repo"
-            echo "../$repo: ff-logistic-$repo at $(git -C "../$repo" rev-parse --short HEAD)"
+            url="https://github.com/ffetih/ff-logistic-$repo.git"
+            if [ "$branch" != main ] && git ls-remote --exit-code --heads "$url" "$branch" > /dev/null; then
+              ref="$branch"
+            else
+              ref=main
+            fi
+            git clone --quiet --depth 1 --branch "$ref" "$url" "../$repo"
+            echo "../$repo: ff-logistic-$repo $ref at $(git -C "../$repo" rev-parse --short HEAD)"
           done
       - name: Build what it builds on
         if: inputs.prebuild != ''
