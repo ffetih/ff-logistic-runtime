@@ -83,3 +83,44 @@ No port-forward.
 
 Open `http://127.0.0.1:8080`.
 `http://localhost:8080` fails on Windows with `ERR_EMPTY_RESPONSE`: `localhost` resolves to `::1` first, and k3d publishes the port on IPv4 only.
+
+[[start]]
+== Starting the cluster again
+
+Windows stops WSL after a while without a terminal, and Docker Engine runs inside WSL: the cluster's containers stop with it.
+Open a WSL terminal, then:
+
+[source,bash]
+----
+docker ps                          # Docker answers; if not: sudo service docker start
+k3d cluster list                   # ff-logistic 1/1, or 0/1 when it is stopped
+k3d cluster start ff-logistic
+kubectl get nodes                  # Ready
+----
+
+The pods come back on their own within a few minutes; some restart once while PostgreSQL starts.
+Keep one k3d cluster running at a time: two clusters cannot both publish `8080`.
+
+=== The load balancer does not get ready
+
+Symptom:: `k3d cluster start` ends with `FATA … Node k3d-ff-logistic-serverlb failed to get ready`: k3d waited for the log line `start worker processes` and did not see it. kubectl says `The connection to the server 0.0.0.0:<port> was refused`. IntelliJ shows `Error while proxying request: dial tcp 0.0.0.0:<port>`.
+Check:: Kubernetes itself, past the load balancer: `docker exec k3d-ff-logistic-server-0 kubectl get nodes` prints the node `Ready`. Then the load balancer's networks:
++
+[source,bash]
+----
+docker inspect -f '{{.RestartCount}} restarts | networks: {{range $k,$v := .NetworkSettings.Networks}}{{$k}}={{$v.IPAddress}} {{end}}' k3d-ff-logistic-serverlb
+----
++
+It shows many restarts and no network after `networks:`. Its log ends with `creating initial nginx config (try 3/3)`.
+Cause:: An earlier start failed while Docker connected the container to its network. Publishing the ports is part of that step; the usual reason is another k3d cluster holding `8080` (`Bind for 0.0.0.0:8080 failed: port is already allocated`). Docker undid the step and left the container with no network. Without one, nginx cannot find `k3d-ff-logistic-server-0`; it exits, and Docker starts it again. Every later `k3d cluster start` reuses that container.
+Fix:: Stop whatever holds the port (`k3d cluster stop <other>`), then connect the load balancer to the cluster's network again:
++
+[source,bash]
+----
+docker stop k3d-ff-logistic-serverlb
+docker network connect k3d-ff-logistic k3d-ff-logistic-serverlb
+docker start k3d-ff-logistic-serverlb
+kubectl get nodes                  # Ready
+----
++
+Seen on 2026-11-20, after a break with the `lf` lab cluster also set to start with Docker. Nothing in the cluster was lost: k3s and the pods ran the whole time, behind a closed door.
