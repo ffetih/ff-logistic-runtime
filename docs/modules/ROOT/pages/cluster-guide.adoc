@@ -124,3 +124,25 @@ kubectl get nodes                  # Ready
 ----
 +
 Seen on 2026-11-20, after a break with the `lf` lab cluster also set to start with Docker. Nothing in the cluster was lost: k3s and the pods ran the whole time, behind a closed door.
+
+[[sessions]]
+== Sessions that expire
+
+Two logins end on their own, and both look like something else when they do:
+
+[cols="2,1,3,3",options="header"]
+|===
+| Session | Lasts | What it looks like when it ends | Renew
+
+| The API token from `localhost:8085/sessions`, used by `curl` with `${H[@]}`
+| minutes
+| A request answers `401` with an empty body: `curl -s … \| jq` prints nothing at all, or `null`.
+| Take a new token (the same `TOKEN=$(curl …)` line). Print `+%{http_code}+` when an answer looks empty.
+
+| The `argocd` CLI's session
+| 24 hours
+| `argocd app sync` fails with `rpc error: code = Unauthenticated … token is expired`; nothing is synced, and whatever the sync would have brought (a migration, a new schema) is missing.
+| `argocd relogin`, and the password at the prompt. Typed at the prompt, it stays out of the shell's history.
+|===
+
+Shell variables live in one terminal too: a value set in one (`TOKEN`, `H`, a request body) is empty in the next. In a new terminal, set them again first.
