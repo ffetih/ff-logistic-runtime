@@ -36,6 +36,21 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      # The Maven Wrapper downloads Maven itself from Maven Central on first use, and a single
+      # failed download failed a whole build once (S02-10). Kept in the cache between runs, and
+      # fetched here, before anything needs it, with a few tries.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/wrapper
+          key: maven-wrapper-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+      - name: Fetch Maven
+        run: |
+          for attempt in 1 2 3 4; do
+            if ./mvnw --version > /dev/null; then ./mvnw --version | head -1; exit 0; fi
+            echo "::warning::fetching Maven failed (attempt $attempt); trying again in 15 s"
+            sleep 15
+          done
+          exit 1
       - name: Build what it builds on
         if: inputs.prebuild != ''
         run: |
