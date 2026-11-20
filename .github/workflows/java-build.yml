@@ -1,0 +1,61 @@
+# Reusable: build and test one FF Logistic repository, the way its own build.sh does locally.
+#
+# The repositories it builds on (ff-logistic-base, and ff-logistic-shared for the applications)
+# are cloned from their main branch and installed first, without their tests: their own CI ran
+# those. All six repositories are public, so no token is needed to clone them.
+#
+# The jars are uploaded as the artifact "jars", with their paths, for java-publish.yml.
+#
+#   jobs:
+#     build:
+#       uses: ffetih/ff-logistic-runtime/.github/workflows/java-build.yml@main
+#       with:
+#         prebuild: base shared
+name: Java build (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      prebuild:
+        description: The repositories this one builds on, in build order, by short name ("base shared")
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Build what it builds on
+        if: inputs.prebuild != ''
+        run: |
+          set -euo pipefail
+          for repo in ${{ inputs.prebuild }}; do
+            echo "::group::ff-logistic-$repo"
+            git clone --quiet --depth 1 "https://github.com/ffetih/ff-logistic-$repo.git" "$RUNNER_TEMP/$repo"
+            echo "ff-logistic-$repo at $(git -C "$RUNNER_TEMP/$repo" rev-parse --short HEAD)"
+            "$RUNNER_TEMP/$repo/build.sh" -q -DskipTests
+            echo "::endgroup::"
+          done
+      - name: Build and test
+        run: ./build.sh
+      # The root pom.xml rides along so the artifact keeps the jars' paths from the repository
+      # root (upload-artifact cuts paths down to the files' common ancestor).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jars
+          retention-days: 1
+          if-no-files-found: ignore
+          path: |
+            pom.xml
+            **/target/*.jar
