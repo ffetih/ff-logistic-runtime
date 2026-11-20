@@ -1,0 +1,74 @@
+# Every push and pull request: render what Argo CD will render, so a broken chart, values file
+# or kustomization fails here and not in the cluster.
+#
+# The services' values live in their own repositories (decision 8), so those are checked out
+# next to this one, from main, and every deploy/apps/<name> there is rendered with this chart.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manifests:
+    name: Render manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: runtime
+      - uses: actions/checkout@v6
+        with:
+          repository: ffetih/ff-logistic-shared
+          path: shared
+      - uses: actions/checkout@v6
+        with:
+          repository: ffetih/ff-logistic-modulith
+          path: modulith
+      - uses: actions/checkout@v6
+        with:
+          repository: ffetih/ff-logistic-services
+          path: services
+      - uses: azure/setup-helm@v4
+      - name: Every application, the way Argo CD renders it
+        run: |
+          set -euo pipefail
+          chart=runtime/deploy/charts/ff-service
+          for app in shared/deploy/apps/*/ modulith/deploy/apps/*/ services/deploy/apps/*/; do
+            name="$(basename "$app")"
+            echo "::group::$name ($app)"
+            files=(-f "$app/values.yaml" -f "$app/values-local.yaml" -f "$app/image-local.yaml")
+            helm lint "$chart" "${files[@]}"
+            helm template "$name" "$chart" "${files[@]}" > "$RUNNER_TEMP/$name.yaml"
+            echo "$(grep -c '^kind:' "$RUNNER_TEMP/$name.yaml") objects"
+            echo "::endgroup::"
+          done
+      - name: Every shape the chart can render
+        run: |
+          set -euo pipefail
+          chart=runtime/deploy/charts/ff-service
+          base=(-f modulith/deploy/apps/logistics-app/values.yaml -f modulith/deploy/apps/logistics-app/values-local.yaml -f modulith/deploy/apps/logistics-app/image-local.yaml)
+          helm template x "$chart" "${base[@]}" --set rollout.enabled=false --set migration.enabled=false > /dev/null
+          helm template x "$chart" "${base[@]}" --set rollout.enabled=true --set rollout.strategy=canary --set rollout.canary.analysis.enabled=false > /dev/null
+          helm template x "$chart" "${base[@]}" --set rollout.enabled=true --set rollout.strategy=blueGreen > /dev/null
+      - name: The edge
+        run: |
+          set -euo pipefail
+          helm lint runtime/deploy/platform/edge
+          helm template edge runtime/deploy/platform/edge > /dev/null
+      - name: Kustomizations
+        run: |
+          set -euo pipefail
+          for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs; do
+            echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" | grep -c '^kind:') objects"
+          done
