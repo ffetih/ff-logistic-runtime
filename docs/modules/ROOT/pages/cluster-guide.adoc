@@ -167,3 +167,17 @@ It prints, and saves as `load-<side>-<time>.txt` where it was started:
 The users first run 30 seconds unmeasured: the first requests after a quiet spell meet cold code (the JVM compiles as it goes, connection pools fill up), and neither side should be judged on that. Only the measured phase is counted, and only then are the pods sampled.
 
 Every iteration plans a shipment, delivers it to the Hadimkoy hub and so opens an arrival there: the data grows with each run. Lists that grow (shipments, arrivals) are not read, so a later run is not slower for it. The Job and its pod stay a day, for `kubectl logs`.
+
+[[drill]]
+=== A failure drill under load
+
+`deploy/load/drill.sh` stops one part, brings it back after a while, and every 5 seconds writes down what has been delivered since it began, what has arrived at the warehouse and in analytics, and how many events wait in the outbox, until the backlog is gone. Run it in a second terminal while `run.sh` drives traffic: k6 says what the user saw, the drill what happened behind the edge.
+
+[source,bash]
+----
+deploy/load/drill.sh kafka 60       # the broker away for a minute
+deploy/load/drill.sh postgres 30    # the database away for 30 seconds
+deploy/load/drill.sh routing 60     # the routing service away (services side only)
+----
+
+It ends with how long the backlog took to drain after the part came back, and saves its timeline as `drill-<part>-<side>-<time>.txt`. Scaling a platform part to zero makes its Application `OutOfSync` until the drill scales it back; the drill does that itself.
