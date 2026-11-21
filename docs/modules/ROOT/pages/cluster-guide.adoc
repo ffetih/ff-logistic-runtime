@@ -146,3 +146,22 @@ Two logins end on their own, and both look like something else when they do:
 |===
 
 Shell variables live in one terminal too: a value set in one (`TOKEN`, `H`, a request body) is empty in the next. In a new terminal, set them again first.
+
+[[load]]
+== A load test
+
+`deploy/load/run.sh` runs the walkthrough as a k6 scenario (`deploy/load/walkthrough.js`) against the edge, as a Job in the cluster, and samples the pods' CPU and memory with `kubectl top` every 15 seconds while it runs. The edge answers with whichever side is active, so the same command measures either side.
+
+[source,bash]
+----
+deploy/load/run.sh            # 10 virtual users for 3 minutes
+deploy/load/run.sh 20 5m      # 20 for 5 minutes
+----
+
+It prints, and saves as `load-<side>-<time>.txt` where it was started:
+
+* the side's pods at rest;
+* per request (`plan`, `shipment`, `pickup`, `departure`, `deliver`, `warehouses`, `distance`, and `sign-in`): the count, the failures, the median, p95, p99 and the slowest;
+* each pod's highest CPU and memory under load, for the side and for the platform both sides share (PostgreSQL, Kafka, identity, the analytics loader).
+
+Every iteration plans a shipment, delivers it to the Hadimkoy hub and so opens an arrival there: the data grows with each run. Lists that grow (shipments, arrivals) are not read, so a later run is not slower for it. The Job and its pod stay a day, for `kubectl logs`.
