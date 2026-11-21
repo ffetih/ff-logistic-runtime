@@ -11,12 +11,13 @@ What FF Logistic runs but does not write: one k3d cluster, Argo CD, and the plat
 
 | `ff-root` | The app of apps: creates every Application in `deploy/argocd/apps`, and syncs itself | | 
 | `argocd` | Argo CD 3.6.1, managing its own install | | 8080
-| `postgres` | PostgreSQL 17: `ff_logistics`; `ff_logistics_analytics` comes with the analytics loader (S6) | -1 | 5432
+| `postgres` | PostgreSQL 17: `ff_logistics`, and `ff_logistics_analytics`, which the analytics loader creates (S6) | -1 | 5432
 | `keycloak` | Keycloak 26.8 with the `ff-logistics` realm | -1 | 8180
 | `kafka` | Kafka 4.2, one KRaft broker | -1 | 9094
 | `rustfs` | RustFS 1.0.6, the S3 object store, from the upstream chart | -1 | 9000
 | `argo-rollouts` | Argo Rollouts 1.10, canary releases with analysis | |
 | `identity` | The identity service (built in ff-logistic-shared) | | 8085
+| `analytics-loader` | The analytics loader (built in ff-logistic-shared): Kafka into its own database, `ff_logistics_analytics`, which its PreSync Job creates. Like `identity`, it runs whichever side is active | | 8086
 | `edge` | The one entry point, whichever implementation is active; its PostSync smoke test checks the side that answers | | 8081
 | `ff-implementation` | The switch: an ApplicationSet that renders the active side's Applications (`logistics-app`, or `warehousing`, `transportation`, `routing`, `gateway`) | |
 |===
@@ -30,7 +31,7 @@ flowchart TB
   A --> R["ff-root<br/>app of apps"]
   R --> P["platform, wave -1<br/>postgres · keycloak · kafka · rustfs"]
   R --> AR[argo-rollouts]
-  R --> S["identity · edge"]
+  R --> S["identity · analytics-loader · edge"]
   R --> AS["ff-implementation<br/>ApplicationSet"]
   AS --> IMPL["the active side's Applications"]
 ....
