@@ -14,6 +14,10 @@
 // then waits a second, as a person would. Lists that grow with every run (shipments, arrivals) are
 // not read: run after run, they would make the second side look slower.
 //
+// Two phases with the same users: a warm-up (WARMUP, 30 s), then the measured run (DURATION). The
+// first requests after a quiet spell meet cold code (the JVM compiles as it goes, pools fill up);
+// only the measured phase is counted, so neither side is judged on its first minute.
+//
 // Run with deploy/load/run.sh, which starts it as a Job in the cluster and samples the pods.
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -22,22 +26,25 @@ const EDGE = __ENV.EDGE_URL || 'http://edge:8081';
 const IDENTITY = __ENV.IDENTITY_URL || 'http://identity:8085';
 const NAMES = ['sign-in', 'plan', 'shipment', 'pickup', 'departure', 'deliver', 'warehouses', 'distance'];
 
-const thresholds = { http_req_failed: ['rate<0.01'] };
-// A threshold per name, always met, only so that the summary has figures for each name.
+const VUS = Number(__ENV.VUS || 10);
+const WARMUP = __ENV.WARMUP || '30s';
+const DURATION = __ENV.DURATION || '3m';
+
+// Thresholds on the measured phase only (k6 tags every request with its scenario), always met:
+// they are there so that the summary has figures for each request name.
+const M = 'scenario:measured';
+const thresholds = { [`http_req_failed{${M}}`]: ['rate<0.01'], [`http_reqs{${M}}`]: ['count>=0'],
+  [`iterations{${M}}`]: ['count>=0'] };
 for (const name of NAMES) {
-  thresholds[`http_req_duration{name:${name}}`] = ['max>=0'];
-  thresholds[`http_reqs{name:${name}}`] = ['count>=0'];
-  thresholds[`http_req_failed{name:${name}}`] = ['rate>=0'];
+  thresholds[`http_req_duration{${M},name:${name}}`] = ['max>=0'];
+  thresholds[`http_reqs{${M},name:${name}}`] = ['count>=0'];
+  thresholds[`http_req_failed{${M},name:${name}}`] = ['rate>=0'];
 }
 
 export const options = {
   scenarios: {
-    walkthrough: {
-      executor: 'constant-vus',
-      vus: Number(__ENV.VUS || 10),
-      duration: __ENV.DURATION || '3m',
-      gracefulStop: '30s',
-    },
+    warmup: { executor: 'constant-vus', vus: VUS, duration: WARMUP, gracefulStop: '5s' },
+    measured: { executor: 'constant-vus', vus: VUS, duration: DURATION, startTime: WARMUP, gracefulStop: '30s' },
   },
   summaryTrendStats: ['avg', 'med', 'p(95)', 'p(99)', 'max'],
   thresholds,
@@ -96,23 +103,27 @@ export default function () {
 // with k6's own summary, so the pod needs nothing from the internet.
 export function handleSummary(data) {
   const m = data.metrics;
-  const ms = (v) => (v === undefined ? '-' : v.toFixed(1)).padStart(8);
+  const v = (key, stat) => (m[key] ? m[key].values[stat] : undefined);
+  const ms = (x) => (x === undefined ? '-' : x.toFixed(1)).padStart(8);
+  const seconds = (d) => Number(d.replace(/s$/, '').replace(/^(\d+)m$/, (_, n) => String(n * 60)));
+  const measured = seconds(DURATION);
   const lines = [];
-  lines.push(`side: ${__ENV.SIDE || '?'}  vus: ${options.scenarios.walkthrough.vus}  duration: ${options.scenarios.walkthrough.duration}`);
-  lines.push(`iterations: ${m.iterations.values.count}  (${m.iterations.values.rate.toFixed(2)}/s)  `
-    + `requests: ${m.http_reqs.values.count}  (${m.http_reqs.values.rate.toFixed(1)}/s)  `
-    + `failed: ${(m.http_req_failed.values.rate * 100).toFixed(2)}%`);
+  lines.push(`side: ${__ENV.SIDE || '?'}  vus: ${VUS}  warm-up: ${WARMUP}  measured: ${DURATION}`);
+  const iterations = v(`iterations{${M}}`, 'count') || 0;
+  const requests = v(`http_reqs{${M}}`, 'count') || 0;
+  lines.push(`iterations: ${iterations}  (${(iterations / measured).toFixed(2)}/s)  `
+    + `requests: ${requests}  (${(requests / measured).toFixed(1)}/s)  `
+    + `failed: ${((v(`http_req_failed{${M}}`, 'rate') || 0) * 100).toFixed(2)}%`);
   lines.push('');
   lines.push(`${'request'.padEnd(11)}${'count'.padStart(7)}${'failed'.padStart(8)}${'med ms'.padStart(8)}`
     + `${'p95 ms'.padStart(8)}${'p99 ms'.padStart(8)}${'max ms'.padStart(8)}`);
   for (const name of NAMES) {
-    const d = m[`http_req_duration{name:${name}}`];
-    const c = m[`http_reqs{name:${name}}`];
-    const f = m[`http_req_failed{name:${name}}`];
-    if (!d || !c || c.values.count === 0) continue;
-    lines.push(`${name.padEnd(11)}${String(c.values.count).padStart(7)}`
-      + `${((f ? f.values.rate : 0) * 100).toFixed(1).padStart(7)}%${ms(d.values.med)}${ms(d.values['p(95)'])}`
-      + `${ms(d.values['p(99)'])}${ms(d.values.max)}`);
+    const d = `http_req_duration{${M},name:${name}}`;
+    const count = v(`http_reqs{${M},name:${name}}`, 'count');
+    if (!count) continue;
+    lines.push(`${name.padEnd(11)}${String(count).padStart(7)}`
+      + `${((v(`http_req_failed{${M},name:${name}}`, 'rate') || 0) * 100).toFixed(1).padStart(7)}%`
+      + `${ms(v(d, 'med'))}${ms(v(d, 'p(95)'))}${ms(v(d, 'p(99)'))}${ms(v(d, 'max'))}`);
   }
   return { stdout: lines.join('\n') + '\n' };
 }
