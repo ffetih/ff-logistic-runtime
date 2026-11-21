@@ -3,8 +3,9 @@
 # samples the pods' CPU and memory while it runs (S07-01, S07-02). Run it once per side: the edge
 # answers with whichever side is active, so the script and the numbers are the same for both.
 #
-#   deploy/load/run.sh             10 virtual users for 3 minutes
-#   deploy/load/run.sh 20 5m       20 for 5 minutes
+#   deploy/load/run.sh             10 virtual users: 30 s of warm-up, then 3 minutes measured
+#   deploy/load/run.sh 20 5m       20 users, 5 minutes measured
+#   deploy/load/run.sh 20 5m 60    and 60 s of warm-up
 #
 # Prints, and saves next to where it was started as load-<side>-<time>.txt:
 #   the pods at rest, k6's figures per request, and each pod's highest CPU and memory under load.
@@ -14,6 +15,7 @@ cd "$(dirname "$0")"
 NS=ff-logistics
 VUS=${1:-10}
 DURATION=${2:-3m}
+WARMUP=${3:-30}
 SIDE=$(kubectl -n $NS get rollout logistics-app >/dev/null 2>&1 && echo modulith || echo services)
 STAMP=$(date +%Y%m%d-%H%M%S)
 JOB=load-$SIDE-$(date +%H%M%S)
@@ -38,7 +40,7 @@ summarise() {
 }
 
 {
-  echo "== load test: $SIDE side, $VUS virtual users for $DURATION, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "== load test: $SIDE side, $VUS virtual users, ${WARMUP}s warm-up, $DURATION measured, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
   top_pods "$APP" > "$SAMPLES.rest"; summarise "$SAMPLES.rest" "-- the $SIDE side at rest"
   echo
@@ -70,6 +72,7 @@ spec:
           env:
             - {name: VUS, value: "$VUS"}
             - {name: DURATION, value: "$DURATION"}
+            - {name: WARMUP, value: "${WARMUP}s"}
             - {name: SIDE, value: "$SIDE"}
             - name: LOAD_USERNAME
               valueFrom: {secretKeyRef: {name: smoke-test-user, key: username}}
@@ -84,16 +87,18 @@ spec:
         - name: scripts
           configMap: {name: load-walkthrough}
 YAML
-echo "job/$JOB started; sampling the pods every 15 s until it ends ..."
+echo "job/$JOB started: ${WARMUP}s warm-up, then sampling the pods every 15 s until it ends ..."
 
 kubectl -n $NS wait --for=condition=ready pod -l job-name=$JOB --timeout=120s >/dev/null 2>&1 || true
+sleep "$WARMUP"
 while kubectl -n $NS get job $JOB -o jsonpath='{.status.active}' 2>/dev/null | grep -q 1; do
   top_pods "$APP" >> "$SAMPLES"; top_pods "$SHARED" >> "$SAMPLES.shared"; sleep 15
 done
 
 {
   echo "-- k6"
-  kubectl -n $NS logs job/$JOB | grep -v -E '^\s*$|level=' || true
+  # k6's own errors (level=error) are kept: a failing summary would otherwise go unnoticed.
+  kubectl -n $NS logs job/$JOB | grep -v -E '^\s*$' || true
   echo
   summarise "$SAMPLES" "-- the $SIDE side under load (highest sample per pod)"
   echo

@@ -154,8 +154,8 @@ Shell variables live in one terminal too: a value set in one (`TOKEN`, `H`, a re
 
 [source,bash]
 ----
-deploy/load/run.sh            # 10 virtual users for 3 minutes
-deploy/load/run.sh 20 5m      # 20 for 5 minutes
+deploy/load/run.sh            # 10 virtual users: 30 s warm-up, 3 minutes measured
+deploy/load/run.sh 20 5m 60   # 20 users, 60 s warm-up, 5 minutes measured
 ----
 
 It prints, and saves as `load-<side>-<time>.txt` where it was started:
@@ -163,5 +163,7 @@ It prints, and saves as `load-<side>-<time>.txt` where it was started:
 * the side's pods at rest;
 * per request (`plan`, `shipment`, `pickup`, `departure`, `deliver`, `warehouses`, `distance`, and `sign-in`): the count, the failures, the median, p95, p99 and the slowest;
 * each pod's highest CPU and memory under load, for the side and for the platform both sides share (PostgreSQL, Kafka, identity, the analytics loader).
+
+The users first run 30 seconds unmeasured: the first requests after a quiet spell meet cold code (the JVM compiles as it goes, connection pools fill up), and neither side should be judged on that. Only the measured phase is counted, and only then are the pods sampled.
 
 Every iteration plans a shipment, delivers it to the Hadimkoy hub and so opens an arrival there: the data grows with each run. Lists that grow (shipments, arrivals) are not read, so a later run is not slower for it. The Job and its pod stay a day, for `kubectl logs`.
