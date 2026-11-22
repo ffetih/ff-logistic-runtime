@@ -69,6 +69,6 @@ jobs:
       - name: Kustomizations
         run: |
           set -euo pipefail
-          for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs; do
+          for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset; do
             echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" | grep -c '^kind:') objects"
           done
