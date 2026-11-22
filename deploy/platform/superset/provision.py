@@ -82,8 +82,8 @@ def pin_embedded(db, Dashboard, EmbeddedDashboard):
             embedded = EmbeddedDashboard(dashboard_id=dashboard.id)
             db.session.add(embedded)
         embedded.uuid = uuid.UUID(embedded_uuid)
-        # The console origin is set when the console exists (S9).
-        embedded.allow_domain_list = ""
+        # The console (8090) and Vite's dev server (5173). The iframe sends that origin.
+        embedded.allow_domain_list = "http://localhost:8090,http://localhost:5173"
         print(f"provision: '{dashboard.dashboard_title}' embedded as {embedded_uuid}")
     db.session.commit()
 
