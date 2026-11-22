@@ -78,9 +78,6 @@ def _guest_tenant():
     return None
 
 
-_SQL_COMMENT = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
-_UNICODE_ESCAPE = re.compile(r"\bu&\s*['\"]|\buescape\b", re.IGNORECASE)
-_SQL_STRING = re.compile(r"'(?:[^']|'')*'|\$(\w*)\$.*?\$\1\$", re.DOTALL)
 _SCOPE_CHANGE = re.compile(
     r"\bset_config\b"
     r"|\breset\s+all\b"
@@ -91,6 +88,7 @@ _SCOPE_CHANGE = re.compile(
     r"|;\s*\S",
     re.IGNORECASE,
 )
+_DOLLAR_QUOTE = re.compile(r"\$(\w*)\$")
 
 
 class AnalyticsScopeChangeForbidden(Exception):
@@ -98,13 +96,96 @@ class AnalyticsScopeChangeForbidden(Exception):
 
 
 def _changes_analytics_scope(statement):
+    """True when the statement could change the tenant, or is more than one statement.
+
+    Strings are masked before comments are. A `--` or `/*` inside a string is not a
+    comment, so it must not hide the statement that follows it. `E'\\''` is one quote
+    inside an escape string, and the semicolon after it is a second statement.
+    """
     if not isinstance(statement, str):
         return False
-    code = _SQL_COMMENT.sub(" ", statement)
-    if _UNICODE_ESCAPE.search(code):
+    code = _sql_outside_literals(statement)
+    if code is None:
         return True
-    code = _SQL_STRING.sub(" ", code).replace('"', "").strip().rstrip(";")
+    code = code.replace('"', "").strip().rstrip(";")
     return _SCOPE_CHANGE.search(code) is not None
+
+
+def _sql_outside_literals(sql):
+    """The statement with literals and comments replaced by a space.
+
+    Returns None for a Unicode escape (`U&` or `UESCAPE`): those can spell a keyword
+    without writing it.
+    """
+    out = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        if sql.startswith("--", i):
+            newline = sql.find("\n", i)
+            i = n if newline < 0 else newline
+            out.append(" ")
+            continue
+        if sql.startswith("/*", i):
+            end = sql.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            out.append(" ")
+            continue
+        if sql[i] in ("E", "e") and i + 1 < n and sql[i + 1] == "'":
+            i = _skip_escape_string(sql, i + 2)
+            out.append(" ")
+            continue
+        if sql[i] == "'":
+            i = _skip_standard_string(sql, i + 1)
+            out.append(" ")
+            continue
+        if sql[i] == "$":
+            match = _DOLLAR_QUOTE.match(sql, i)
+            if match:
+                tag = match.group(0)
+                end = sql.find(tag, i + len(tag))
+                i = n if end < 0 else end + len(tag)
+                out.append(" ")
+                continue
+        if sql.startswith(("U&", "u&"), i) or _at_keyword(sql, i, "uescape"):
+            return None
+        out.append(sql[i])
+        i += 1
+    return "".join(out)
+
+
+def _at_keyword(sql, i, word):
+    tail = sql[i:i + len(word) + 1]
+    if not tail.lower().startswith(word):
+        return False
+    return len(tail) == len(word) or not (tail[-1].isalnum() or tail[-1] == "_")
+
+
+def _skip_standard_string(sql, i):
+    n = len(sql)
+    while i < n:
+        if sql[i] == "'":
+            if i + 1 < n and sql[i + 1] == "'":
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return n
+
+
+def _skip_escape_string(sql, i):
+    n = len(sql)
+    while i < n:
+        if sql[i] == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if sql[i] == "'":
+            if i + 1 < n and sql[i + 1] == "'":
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return n
 
 
 def _is_analytics(database):

@@ -3,7 +3,9 @@
 database_name: ff_logistics_analytics
 sqlalchemy_uri: postgresql+psycopg2://analytics_reader:XXXXXXXXXX@postgres:5432/ff_logistics_analytics
 cache_timeout: null
-expose_in_sqllab: true
+# SQL Lab runs whatever the signed-in user types, as analytics_reader. The chart
+# guard is not that editor. Admin reads this database through a guest token.
+expose_in_sqllab: false
 allow_run_async: false
 allow_ctas: false
 allow_cvas: false
