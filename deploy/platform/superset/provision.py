@@ -1,5 +1,5 @@
 # Loads the files in assets/ when Superset starts: the analytics connection, the
-# monthly dataset, its chart and the dashboard. A later start overwrites the same
+# monthly dataset, its charts and the dashboard. A later start overwrites the same
 # UUIDs. A chart edited in Superset and not exported is undone at the next start.
 #
 # The reader's password comes from ANALYTICS_PASSWORD. The embedded id is pinned
