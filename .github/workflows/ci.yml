@@ -74,7 +74,7 @@ jobs:
       - name: Kustomizations
         run: |
           set -euo pipefail
-          for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset platform/jaeger; do
+          for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset platform/jaeger platform/mailpit; do
             echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" | grep -c '^kind:') objects"
           done
       - name: The analytics scope guard

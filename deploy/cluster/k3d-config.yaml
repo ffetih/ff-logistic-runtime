@@ -36,6 +36,9 @@ ports:
   - port: 8090:30090    # console
     nodeFilters:
       - server:0
+  - port: 8092:30092    # Mailpit UI
+    nodeFilters:
+      - server:0
   - port: 8180:30180    # Keycloak, for runs from the IDE
     nodeFilters:
       - server:0

@@ -1,0 +1,11 @@
+# Mailpit for the local cluster (S13). Applied by the mailpit Application
+# (deploy/argocd/apps/mailpit.yaml) into the ff-logistics namespace.
+# Messages stay in memory: a restart drops them.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - deployment.yaml
+  - service.yaml
