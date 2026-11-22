@@ -1,0 +1,20 @@
+# Mailpit (S13). Manual sync. Not part of the switch: report mail lands here either way.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailpit
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/mailpit
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
