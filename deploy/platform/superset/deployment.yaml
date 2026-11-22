@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: superset-credentials
                   key: admin-password
+            - name: GUEST_TOKEN_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: superset-credentials
+                  key: guest-token-secret
             - name: ANALYTICS_USER
               valueFrom:
                 secretKeyRef:
@@ -130,6 +135,11 @@ spec:
                 secretKeyRef:
                   name: superset-credentials
                   key: secret-key
+            - name: GUEST_TOKEN_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: superset-credentials
+                  key: guest-token-secret
           startupProbe:
             httpGet:
               path: /health
