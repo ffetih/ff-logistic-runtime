@@ -1,0 +1,40 @@
+# Reporting (S13). Written once, in shared, and deployed whichever implementation is active:
+# it reads the analytics rollup, not the code behind the edge. Not part of the switch.
+#
+# Two sources (decision 8: deploy values live next to the code):
+#   1. the chart, from this repository: deploy/charts/ff-service
+#   2. ff-logistic-shared as $values: deploy/apps/reporting, where the service is built.
+#      Its CI writes the image tag there, so it never has to write to this repository.
+# The last values file wins: image-local.yaml over values-local.yaml over values.yaml over the
+# chart's defaults.
+#
+# Manual sync. Sync it after postgres, kafka, rustfs and identity: the PreSync Jobs create
+# ff_reporting and its tables, and a token is checked against identity's keys.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reporting
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  sources:
+    - repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+      targetRevision: main
+      path: deploy/charts/ff-service
+      helm:
+        releaseName: reporting
+        valueFiles:
+          - $values/deploy/apps/reporting/values.yaml
+          - $values/deploy/apps/reporting/values-local.yaml
+          - $values/deploy/apps/reporting/image-local.yaml
+    - repoURL: https://github.com/ffetih/ff-logistic-shared.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
