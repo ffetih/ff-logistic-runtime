@@ -1,0 +1,159 @@
+# Superset 4.1.2. One process: no Celery, no Redis. The memory budget for it is 1.5 GiB.
+#
+# The init container migrates the metadata database, makes the admin user, and registers
+# ff_logistics_analytics. The server then only answers. A restart finds the admin and the
+# database row already there and leaves them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset
+  labels:
+    app.kubernetes.io/name: superset
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: superset
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: superset
+    spec:
+      enableServiceLinks: false
+      initContainers:
+        - name: init
+          image: apache/superset:4.1.2
+          imagePullPolicy: IfNotPresent
+          env: &env
+            - name: DATABASE_DIALECT
+              value: postgresql+psycopg2
+            - name: DATABASE_HOST
+              value: postgres
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_DB
+              value: superset
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-credentials
+                  key: secret-key
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: superset-credentials
+                  key: admin-password
+            - name: ANALYTICS_USER
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-reader-credentials
+                  key: username
+            - name: ANALYTICS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-reader-credentials
+                  key: password
+            - name: ANALYTICS_SQLALCHEMY_URI
+              value: postgresql+psycopg2://$(ANALYTICS_USER):$(ANALYTICS_PASSWORD)@postgres:5432/ff_logistics_analytics
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              superset db upgrade
+              superset fab create-admin \
+                --username admin \
+                --firstname Superset \
+                --lastname Admin \
+                --email admin@localhost \
+                --password "$ADMIN_PASSWORD" \
+                || echo "admin already exists"
+              superset init
+              python /app/pythonpath/register_analytics.py
+          volumeMounts: &mounts
+            - name: config
+              mountPath: /app/pythonpath/superset_config_docker.py
+              subPath: superset_config_docker.py
+            - name: config
+              mountPath: /app/pythonpath/register_analytics.py
+              subPath: register_analytics.py
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1536Mi
+      containers:
+        - name: superset
+          image: apache/superset:4.1.2
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/bin/run-server.sh"]
+          ports:
+            - name: http
+              containerPort: 8088
+          env:
+            - name: SERVER_WORKER_AMOUNT
+              value: "1"
+            - name: SERVER_THREADS_AMOUNT
+              value: "8"
+            - name: DATABASE_DIALECT
+              value: postgresql+psycopg2
+            - name: DATABASE_HOST
+              value: postgres
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_DB
+              value: superset
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: superset-credentials
+                  key: secret-key
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 18
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+          volumeMounts: *mounts
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1536Mi
+      volumes:
+        - name: config
+          configMap:
+            name: superset-config
