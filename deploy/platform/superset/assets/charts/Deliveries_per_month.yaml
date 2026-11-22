@@ -1,0 +1,22 @@
+slice_name: Deliveries per month
+description: Delivered shipments per UTC month
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: delivery_month
+  time_grain_sqla: P1M
+  metrics:
+  - delivered_shipments
+  groupby: []
+  adhoc_filters: []
+  row_limit: 1000
+  show_legend: false
+  y_axis_format: SMART_NUMBER
+  x_axis_time_format: '%b %Y'
+# The guest check compares the request with this stored query. The dataset id is
+# rewritten on import.
+query_context: '{"datasource":{"id":0,"type":"table"},"queries":[{"columns":[{"columnType":"BASE_AXIS","sqlExpression":"delivery_month","label":"delivery_month","expressionType":"SQL","timeGrain":"P1M"}],"metrics":["delivered_shipments"],"orderby":[["delivered_shipments",false]],"row_limit":100}],"form_data":{}}'
+cache_timeout: null
+uuid: a91c3e57-2b04-4f68-8d1a-6e5b0c7f3924
+version: 1.0.0
+dataset_uuid: 7b2d9e14-0c53-4a86-b1f7-5d3a8e604c29

@@ -43,6 +43,8 @@ FEATURE_FLAGS = {
 
 GUEST_TOKEN_JWT_SECRET = os.environ["GUEST_TOKEN_JWT_SECRET"]
 GUEST_TOKEN_JWT_AUDIENCE = "ff-logistic"
+# provision.py creates this role. A guest token gets it, not Public.
+GUEST_ROLE_NAME = "TenantEmbedViewer"
 
 CACHE_CONFIG = {"CACHE_TYPE": "SimpleCache"}
 # Chart results are not cached. Two guest tokens carry the same empty rls_rules,
