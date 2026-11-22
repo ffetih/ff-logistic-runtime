@@ -72,3 +72,37 @@ jobs:
           for dir in argocd platform/argo-rollouts platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset; do
             echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" | grep -c '^kind:') objects"
           done
+      - name: The analytics scope guard
+        env:
+          SUPERSET_SECRET_KEY: ci
+          DATABASE_DIALECT: postgresql+psycopg2
+          DATABASE_USER: ci
+          DATABASE_PASSWORD: ci
+          DATABASE_HOST: postgres
+          DATABASE_PORT: "5432"
+          DATABASE_DB: superset
+          GUEST_TOKEN_JWT_SECRET: ci
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location(
+              "superset_config", "runtime/deploy/platform/superset/superset_config.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          refused = [
+              "SET app.all_tenants = 'on'",
+              "SELECT '--'; SET app.all_tenants = 'on'; SELECT * FROM tenant_delivery_monthly",
+              "SELECT '/*'; SET app.all_tenants = 'on'; SELECT '*/' FROM tenant_delivery_monthly",
+              "SELECT E'" + "\\" + "'" + "'; SET app.all_tenants = 'on'; SELECT 'x'",
+              "select set_config('app.tenant_id', 'ff-eu-freight', false)",
+          ]
+          kept = [
+              "select count(*) from tenant_delivery_monthly",
+              "select 1;",
+          ]
+          for sql in refused:
+              assert module._changes_analytics_scope(sql), sql
+          for sql in kept:
+              assert not module._changes_analytics_scope(sql), sql
+          print(f"{len(refused)} refused, {len(kept)} kept")
+          PY
