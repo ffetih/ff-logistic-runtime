@@ -12,6 +12,14 @@ metrics:
   verbose_name: Delivered shipments
   expression: SUM(delivered_shipments)
   d3format: ',d'
+- metric_name: total_distance_km
+  verbose_name: Distance (km)
+  expression: SUM(total_distance_km)
+  d3format: ',.1f'
+- metric_name: saved_co2e_kg
+  verbose_name: CO2e saved (kg)
+  expression: SUM(saved_co2e_kg)
+  d3format: ',.1f'
 columns:
 - column_name: delivery_month
   verbose_name: Month

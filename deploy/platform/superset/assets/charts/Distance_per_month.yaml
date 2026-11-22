@@ -1,0 +1,20 @@
+slice_name: Distance per month
+description: Kilometres of delivered shipments per UTC month
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: delivery_month
+  time_grain_sqla: P1M
+  metrics:
+  - total_distance_km
+  groupby: []
+  adhoc_filters: []
+  row_limit: 1000
+  show_legend: false
+  y_axis_format: ',.1f'
+  x_axis_time_format: '%b %Y'
+query_context: '{"datasource":{"id":0,"type":"table"},"queries":[{"columns":[{"columnType":"BASE_AXIS","sqlExpression":"delivery_month","label":"delivery_month","expressionType":"SQL","timeGrain":"P1M"}],"metrics":["total_distance_km"],"orderby":[["total_distance_km",false]],"row_limit":100}],"form_data":{}}'
+cache_timeout: null
+uuid: 3c7a1e84-9b52-4d6f-a018-6f4c2d8e5b71
+version: 1.0.0
+dataset_uuid: 7b2d9e14-0c53-4a86-b1f7-5d3a8e604c29

@@ -110,6 +110,12 @@ spec:
               mountPath: /app/pythonpath/assets/charts/Deliveries_per_month.yaml
               subPath: Deliveries_per_month.yaml
             - name: config
+              mountPath: /app/pythonpath/assets/charts/Distance_per_month.yaml
+              subPath: Distance_per_month.yaml
+            - name: config
+              mountPath: /app/pythonpath/assets/charts/Co2e_saved_per_month.yaml
+              subPath: Co2e_saved_per_month.yaml
+            - name: config
               mountPath: /app/pythonpath/assets/dashboards/Deliveries.yaml
               subPath: Deliveries.yaml
             - name: driver

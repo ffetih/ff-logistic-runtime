@@ -1,0 +1,20 @@
+slice_name: CO2e saved per month
+description: Kilograms of CO2e saved against an all-road trip, per UTC month
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: delivery_month
+  time_grain_sqla: P1M
+  metrics:
+  - saved_co2e_kg
+  groupby: []
+  adhoc_filters: []
+  row_limit: 1000
+  show_legend: false
+  y_axis_format: ',.1f'
+  x_axis_time_format: '%b %Y'
+query_context: '{"datasource":{"id":0,"type":"table"},"queries":[{"columns":[{"columnType":"BASE_AXIS","sqlExpression":"delivery_month","label":"delivery_month","expressionType":"SQL","timeGrain":"P1M"}],"metrics":["saved_co2e_kg"],"orderby":[["saved_co2e_kg",false]],"row_limit":100}],"form_data":{}}'
+cache_timeout: null
+uuid: 8d2f6b40-1c73-4e95-b7a2-0e5d9c3f6a48
+version: 1.0.0
+dataset_uuid: 7b2d9e14-0c53-4a86-b1f7-5d3a8e604c29

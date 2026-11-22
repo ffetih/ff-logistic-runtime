@@ -1,6 +1,6 @@
-# One chart. provision.py pins the embedded id a guest token names.
+# Three charts on the monthly rollup. provision.py pins the embedded id a guest token names.
 dashboard_title: Deliveries per month
-description: Delivered shipments of one tenant, per UTC month
+description: One tenant's delivered shipments, kilometres and CO2e saved, per UTC month
 css: ''
 slug: monthly
 uuid: e5d0a8c3-1f47-4b92-a6e0-3c8d2b5f7041
@@ -33,6 +33,7 @@ position:
     id: GRID_ID
     children:
     - ROW-months
+    - ROW-totals
     parents:
     - ROOT_ID
   ROW-months:
@@ -49,4 +50,25 @@ position:
     children: []
     parents: [ROOT_ID, GRID_ID, ROW-months]
     meta: {width: 12, height: 50, chartId: 1, sliceName: Deliveries per month, uuid: a91c3e57-2b04-4f68-8d1a-6e5b0c7f3924}
+  ROW-totals:
+    type: ROW
+    id: ROW-totals
+    children:
+    - CHART-distance
+    - CHART-co2e
+    parents: [ROOT_ID, GRID_ID]
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-distance:
+    type: CHART
+    id: CHART-distance
+    children: []
+    parents: [ROOT_ID, GRID_ID, ROW-totals]
+    meta: {width: 6, height: 40, chartId: 2, sliceName: Distance per month, uuid: 3c7a1e84-9b52-4d6f-a018-6f4c2d8e5b71}
+  CHART-co2e:
+    type: CHART
+    id: CHART-co2e
+    children: []
+    parents: [ROOT_ID, GRID_ID, ROW-totals]
+    meta: {width: 6, height: 40, chartId: 3, sliceName: CO2e saved per month, uuid: 8d2f6b40-1c73-4e95-b7a2-0e5d9c3f6a48}
 version: 1.0.0

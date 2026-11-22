@@ -20,4 +20,6 @@ configMapGenerator:
       - assets/databases/ff_logistics_analytics.yaml
       - assets/datasets/ff_logistics_analytics/tenant_delivery_monthly.yaml
       - assets/charts/Deliveries_per_month.yaml
+      - assets/charts/Distance_per_month.yaml
+      - assets/charts/Co2e_saved_per_month.yaml
       - assets/dashboards/Deliveries.yaml
