@@ -104,6 +104,10 @@ smokeTest:
 # Extra container environment, as Kubernetes EnvVar entries (name/value or name/valueFrom)
 env: []
 
+# Where spans go (S12). Every pod gets TRACING_OTLP_ENDPOINT; an image without the exporter ignores it.
+tracing:
+  otlpEndpoint: http://jaeger:4318/v1/traces
+
 probes:
   liveness: /actuator/health/liveness
   readiness: /actuator/health/readiness

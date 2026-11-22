@@ -1,0 +1,11 @@
+# Jaeger for the local cluster (S12). Applied by the jaeger Application
+# (deploy/argocd/apps/jaeger.yaml) into the ff-logistics namespace.
+# Traces stay in memory: a restart drops them.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - deployment.yaml
+  - service.yaml
