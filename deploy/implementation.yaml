@@ -6,4 +6,4 @@
 # the Applications of that side only and deletes the other side's, with their workloads. Both
 # sides use the same tables, so the data stays. Afterwards: sync the new side's Applications,
 # then the edge, whose smoke test checks the side that now answers.
-active: services
+active: modulith
