@@ -4,12 +4,14 @@
 #
 # That role sees a row only after SET app.tenant_id. The policy does not read a
 # WHERE, and set_config is revoked, so the chart's own statement cannot name the
-# tenant. The connection does, from the guest token's tenant_id claim, before
+# tenant. The connection does, from the guest token's app.tenant_id claim, before
 # the chart SQL. No claim, or a claim that is not a tenant id, leaves the
 # setting unset and the reader sees no rows. A signed-in admin is the same.
 #
-# The claim sits next to user and resources. rls_rules stays empty. Identity
-# signs the same shape (S08-03): HS256, audience ff-logistic, this secret.
+# Identity signs that claim (S08-03): HS256, audience ff-logistic, this secret.
+# The token also carries an rls_rules clause. The policy does not read it.
+# A chart statement that would SET or RESET the scope is refused here. Superset
+# runs that statement on a raw cursor, so the refusal is this hook, not an event.
 import os
 import re
 
@@ -57,10 +59,54 @@ def _guest_tenant():
     if not getattr(user, "is_guest_user", False):
         return None
     token = getattr(user, "guest_token", None)
-    tenant = token.get("tenant_id") if isinstance(token, dict) else None
+    app_claim = token.get("app") if isinstance(token, dict) else None
+    tenant = app_claim.get("tenant_id") if isinstance(app_claim, dict) else None
     if isinstance(tenant, str) and _TENANT_ID.fullmatch(tenant):
         return tenant
     return None
+
+
+_SQL_COMMENT = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
+_UNICODE_ESCAPE = re.compile(r"\bu&\s*['\"]|\buescape\b", re.IGNORECASE)
+_SQL_STRING = re.compile(r"'(?:[^']|'')*'|\$(\w*)\$.*?\$\1\$", re.DOTALL)
+_SCOPE_CHANGE = re.compile(
+    r"\bset_config\b"
+    r"|\breset\s+all\b"
+    r"|\breset\s+(session\s+)?app\s*\.\s*(tenant_id|all_tenants)\b"
+    r"|\bset\s+(session\s+|local\s+)?app\s*\.\s*(tenant_id|all_tenants)\b"
+    r"|\b(query_to_xml|query_to_xmlschema|query_to_xml_and_xmlschema|cursor_to_xml|dblink\w*)\b"
+    r"|(^|;)\s*do\b"
+    r"|;\s*\S",
+    re.IGNORECASE,
+)
+
+
+class AnalyticsScopeChangeForbidden(Exception):
+    """A query could change app.tenant_id or app.all_tenants."""
+
+
+def _changes_analytics_scope(statement):
+    if not isinstance(statement, str):
+        return False
+    code = _SQL_COMMENT.sub(" ", statement)
+    if _UNICODE_ESCAPE.search(code):
+        return True
+    code = _SQL_STRING.sub(" ", code).replace('"', "").strip().rstrip(";")
+    return _SCOPE_CHANGE.search(code) is not None
+
+
+def _is_analytics(database):
+    url = getattr(database, "url_object", None)
+    return getattr(url, "database", None) == _ANALYTICS_DB
+
+
+def SQL_QUERY_MUTATOR(sql, **kwargs):
+    """Superset calls this with the final SQL of every chart and SQL Lab query."""
+    if _is_analytics(kwargs.get("database")) and _changes_analytics_scope(sql):
+        raise AnalyticsScopeChangeForbidden(
+            "A query cannot change app.tenant_id or app.all_tenants"
+        )
+    return sql
 
 
 def _connection_mutator(uri, params, username, security_manager, source):
