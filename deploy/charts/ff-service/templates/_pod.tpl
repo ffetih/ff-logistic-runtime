@@ -25,8 +25,9 @@ spec:
       ports:
         - name: http
           containerPort: {{ .Values.containerPort }}
-      {{- if or .Values.env .Values.migration.enabled }}
       env:
+        - name: TRACING_OTLP_ENDPOINT
+          value: {{ .Values.tracing.otlpEndpoint | quote }}
         {{- with .Values.env }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -39,7 +40,6 @@ spec:
         - name: FF_MIGRATIONS_ENABLED
           value: "false"
         {{- end }}
-      {{- end }}
       startupProbe:
         httpGet:
           path: {{ .Values.probes.liveness }}
