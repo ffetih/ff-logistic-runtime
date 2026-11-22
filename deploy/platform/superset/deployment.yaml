@@ -88,8 +88,8 @@ spec:
               python /app/pythonpath/register_analytics.py
           volumeMounts: &mounts
             - name: config
-              mountPath: /app/pythonpath/superset_config_docker.py
-              subPath: superset_config_docker.py
+              mountPath: /app/pythonpath/superset_config.py
+              subPath: superset_config.py
             - name: config
               mountPath: /app/pythonpath/register_analytics.py
               subPath: register_analytics.py

@@ -1,6 +1,7 @@
-# Overrides the image's own config, which expects Redis. This cluster has none.
-# The metadata database comes from DATABASE_* in the environment. The analytics
-# database is registered separately, as analytics_reader.
+# The image loads a module named superset_config and nothing else. Its own default
+# metadata database is sqlite, so the Postgres URI is set here, from DATABASE_*.
+# This cluster has no Redis. The analytics database is registered separately,
+# as analytics_reader.
 #
 # That role sees a row only after SET app.tenant_id. The policy does not read a
 # WHERE, and set_config is revoked, so the chart's own statement cannot name the
@@ -14,11 +15,20 @@
 # runs that statement on a raw cursor, so the refusal is this hook, not an event.
 import os
 import re
+from urllib.parse import quote_plus
 
 _TENANT_ID = re.compile(r"[a-z0-9][a-z0-9-]{1,63}")
 _ANALYTICS_DB = "ff_logistics_analytics"
 
 SECRET_KEY = os.environ["SUPERSET_SECRET_KEY"]
+
+# Overrides the image default, which is a sqlite file inside the container.
+# The init container and the server do not share that file.
+SQLALCHEMY_DATABASE_URI = (
+    f"{os.environ['DATABASE_DIALECT']}://"
+    f"{quote_plus(os.environ['DATABASE_USER'])}:{quote_plus(os.environ['DATABASE_PASSWORD'])}"
+    f"@{os.environ['DATABASE_HOST']}:{os.environ['DATABASE_PORT']}/{os.environ['DATABASE_DB']}"
+)
 
 # The host port is plain HTTP.
 TALISMAN_ENABLED = False
