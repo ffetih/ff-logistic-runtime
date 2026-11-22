@@ -14,5 +14,5 @@ resources:
 configMapGenerator:
   - name: superset-config
     files:
-      - superset_config_docker.py
+      - superset_config.py
       - register_analytics.py
