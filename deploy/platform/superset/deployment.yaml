@@ -76,6 +76,10 @@ spec:
             - -c
             - |
               set -eu
+              # The image ships sqlite only. The driver is installed once per pod, into the
+              # emptyDir the server mounts too.
+              python -m pip install --target /opt/driver --no-cache-dir psycopg2-binary==2.9.10
+              export PYTHONPATH=/opt/driver:/app/pythonpath
               superset db upgrade
               superset fab create-admin \
                 --username admin \
@@ -93,6 +97,8 @@ spec:
             - name: config
               mountPath: /app/pythonpath/register_analytics.py
               subPath: register_analytics.py
+            - name: driver
+              mountPath: /opt/driver
           resources:
             requests:
               cpu: 100m
@@ -140,6 +146,8 @@ spec:
                 secretKeyRef:
                   name: superset-credentials
                   key: guest-token-secret
+            - name: PYTHONPATH
+              value: /opt/driver:/app/pythonpath
           startupProbe:
             httpGet:
               path: /health
@@ -164,6 +172,8 @@ spec:
             limits:
               memory: 1536Mi
       volumes:
+        - name: driver
+          emptyDir: {}
         - name: config
           configMap:
             name: superset-config
