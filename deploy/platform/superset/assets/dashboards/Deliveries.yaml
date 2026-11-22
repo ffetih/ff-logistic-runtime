@@ -1,0 +1,52 @@
+# One chart. provision.py pins the embedded id a guest token names.
+dashboard_title: Deliveries per month
+description: Delivered shipments of one tenant, per UTC month
+css: ''
+slug: monthly
+uuid: e5d0a8c3-1f47-4b92-a6e0-3c8d2b5f7041
+published: true
+metadata:
+  color_scheme: supersetColors
+  refresh_frequency: 0
+  timed_refresh_immune_slices: []
+  expanded_slices: {}
+  label_colors: {}
+  cross_filters_enabled: false
+  native_filter_configuration: []
+  chart_configuration: {}
+  shared_label_colors: []
+  color_scheme_domain: []
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  HEADER_ID:
+    type: HEADER
+    id: HEADER_ID
+    meta:
+      text: Deliveries per month
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-months
+    parents:
+    - ROOT_ID
+  ROW-months:
+    type: ROW
+    id: ROW-months
+    children:
+    - CHART-monthly-deliveries
+    parents: [ROOT_ID, GRID_ID]
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-monthly-deliveries:
+    type: CHART
+    id: CHART-monthly-deliveries
+    children: []
+    parents: [ROOT_ID, GRID_ID, ROW-months]
+    meta: {width: 12, height: 50, chartId: 1, sliceName: Deliveries per month, uuid: a91c3e57-2b04-4f68-8d1a-6e5b0c7f3924}
+version: 1.0.0

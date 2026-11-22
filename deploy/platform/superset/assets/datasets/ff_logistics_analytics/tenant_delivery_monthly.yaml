@@ -1,0 +1,36 @@
+# The loader's monthly rollup. The chart reads this table, not every delivery.
+table_name: tenant_delivery_monthly
+main_dttm_col: delivery_month
+description: Deliveries per tenant and calendar month (UTC)
+schema: public
+sql: null
+filter_select_enabled: true
+uuid: 7b2d9e14-0c53-4a86-b1f7-5d3a8e604c29
+database_uuid: c4a1e0b2-6f38-4d15-9a70-2e8b5c1d4f63
+metrics:
+- metric_name: delivered_shipments
+  verbose_name: Delivered shipments
+  expression: SUM(delivered_shipments)
+  d3format: ',d'
+columns:
+- column_name: delivery_month
+  verbose_name: Month
+  type: DATE
+  is_dttm: true
+  groupby: true
+  filterable: true
+- column_name: delivered_shipments
+  verbose_name: Delivered shipments
+  type: INTEGER
+- column_name: total_distance_km
+  verbose_name: Distance (km)
+  type: NUMERIC
+- column_name: saved_co2e_kg
+  verbose_name: CO2e saved (kg)
+  type: NUMERIC
+- column_name: tenant_id
+  verbose_name: Tenant
+  type: VARCHAR(64)
+  groupby: true
+  filterable: true
+version: 1.0.0

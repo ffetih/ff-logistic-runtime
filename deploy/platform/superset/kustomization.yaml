@@ -15,4 +15,9 @@ configMapGenerator:
   - name: superset-config
     files:
       - superset_config.py
-      - register_analytics.py
+      - provision.py
+      - assets/metadata.yaml
+      - assets/databases/ff_logistics_analytics.yaml
+      - assets/datasets/ff_logistics_analytics/tenant_delivery_monthly.yaml
+      - assets/charts/Deliveries_per_month.yaml
+      - assets/dashboards/Deliveries.yaml

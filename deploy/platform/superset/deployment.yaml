@@ -1,8 +1,8 @@
 # Superset 4.1.2. One process: no Celery, no Redis. The memory budget for it is 1.5 GiB.
 #
-# The init container migrates the metadata database, makes the admin user, and registers
-# ff_logistics_analytics. The server then only answers. A restart finds the admin and the
-# database row already there and leaves them.
+# The init container migrates the metadata database, makes the admin user, and imports
+# the monthly dashboard from the files in assets/. The server then only answers.
+# A restart overwrites those same UUIDs and leaves the admin in place.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,14 +89,29 @@ spec:
                 --password "$ADMIN_PASSWORD" \
                 || echo "admin already exists"
               superset init
-              python /app/pythonpath/register_analytics.py
+              python /app/pythonpath/provision.py
           volumeMounts: &mounts
             - name: config
               mountPath: /app/pythonpath/superset_config.py
               subPath: superset_config.py
             - name: config
-              mountPath: /app/pythonpath/register_analytics.py
-              subPath: register_analytics.py
+              mountPath: /app/pythonpath/provision.py
+              subPath: provision.py
+            - name: config
+              mountPath: /app/pythonpath/assets/metadata.yaml
+              subPath: metadata.yaml
+            - name: config
+              mountPath: /app/pythonpath/assets/databases/ff_logistics_analytics.yaml
+              subPath: ff_logistics_analytics.yaml
+            - name: config
+              mountPath: /app/pythonpath/assets/datasets/ff_logistics_analytics/tenant_delivery_monthly.yaml
+              subPath: tenant_delivery_monthly.yaml
+            - name: config
+              mountPath: /app/pythonpath/assets/charts/Deliveries_per_month.yaml
+              subPath: Deliveries_per_month.yaml
+            - name: config
+              mountPath: /app/pythonpath/assets/dashboards/Deliveries.yaml
+              subPath: Deliveries.yaml
             - name: driver
               mountPath: /opt/driver
           resources:

@@ -1,0 +1,15 @@
+# Read as analytics_reader. The password is not in this file: provision.py passes
+# ANALYTICS_PASSWORD. A superuser would skip the row-level policy.
+database_name: ff_logistics_analytics
+sqlalchemy_uri: postgresql+psycopg2://analytics_reader:XXXXXXXXXX@postgres:5432/ff_logistics_analytics
+cache_timeout: null
+expose_in_sqllab: true
+allow_run_async: false
+allow_ctas: false
+allow_cvas: false
+allow_dml: false
+allow_file_upload: false
+extra:
+  allows_virtual_table_explore: true
+uuid: c4a1e0b2-6f38-4d15-9a70-2e8b5c1d4f63
+version: 1.0.0
