@@ -1,0 +1,21 @@
+# Console (S09-01). One origin on host port 8090. Manual sync, after identity and the edge.
+# The image is not published: build shared/console and import it as ff-console:local.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: console
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-shared.git
+    targetRevision: main
+    path: deploy/apps/console
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

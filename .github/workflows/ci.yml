@@ -46,6 +46,11 @@ jobs:
           chart=runtime/deploy/charts/ff-service
           for app in shared/deploy/apps/*/ modulith/deploy/apps/*/ services/deploy/apps/*/; do
             name="$(basename "$app")"
+            # The console is nginx manifests, not this chart.
+            if [ ! -f "$app/values.yaml" ]; then
+              echo "skip $name ($app): no values.yaml"
+              continue
+            fi
             echo "::group::$name ($app)"
             files=(-f "$app/values.yaml" -f "$app/values-local.yaml" -f "$app/image-local.yaml")
             helm lint "$chart" "${files[@]}"
