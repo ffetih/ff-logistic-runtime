@@ -1,0 +1,23 @@
+# The monthly close (S14-02). A CronWorkflow in the workflows namespace: recount, then
+# reporting. Project default: the workflow lives in argo, which ff-logistics does not allow.
+# Manual sync. values-local.yaml sets the short schedule and the month.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: month-close
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/month-close
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-local.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo

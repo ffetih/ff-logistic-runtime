@@ -1,0 +1,67 @@
+# Recounts the months the loader has marked, then asks reporting for {{ .Values.month }}.
+# Reporting sends the mail, if the month is new. This workflow does not talk to Mailpit.
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: month-close
+  namespace: argo
+  labels:
+    app.kubernetes.io/name: month-close
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  timezone: UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 0
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  workflowSpec:
+    entrypoint: close
+    activeDeadlineSeconds: 120
+    templates:
+      - name: close
+        script:
+          image: curlimages/curl:8.22.0
+          command: [sh]
+          env:
+            - name: USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: month-close-user
+                  key: username
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: month-close-user
+                  key: password
+            - name: MONTH
+              value: {{ .Values.month | quote }}
+            - name: IDENTITY_URL
+              value: {{ .Values.identityUrl | quote }}
+            - name: LOADER_URL
+              value: {{ .Values.loaderUrl | quote }}
+            - name: REPORTING_URL
+              value: {{ .Values.reportingUrl | quote }}
+          source: |
+            set -eu
+            [ -n "$MONTH" ] || { echo "FAIL month is empty"; exit 1; }
+            body=$(curl -sS --max-time 15 -H 'Content-Type: application/json' \
+              -d "{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}" \
+              "$IDENTITY_URL/sessions") || { echo "FAIL sign-in: no answer"; exit 1; }
+            TOKEN=$(printf '%s' "$body" | sed -n 's/.*"accessToken" *: *"\([^"]*\)".*/\1/p')
+            [ -n "$TOKEN" ] || { echo "FAIL sign-in: no access token"; exit 1; }
+            echo "ok   sign-in"
+            code=$(curl -sS -o /tmp/recount -w '%{http_code}' --max-time 30 \
+              -X POST -H "Authorization: Bearer $TOKEN" \
+              "$LOADER_URL/api/v1/rollups") || code=000
+            [ "$code" = "200" ] || { echo "FAIL recount: $code"; exit 1; }
+            echo "ok   recount $(cat /tmp/recount)"
+            # 200: the month already exists, nothing is published. 201: reporting created it.
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 \
+              -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+              -d "{\"month\":\"$MONTH\"}" \
+              "$REPORTING_URL/api/v1/reports/monthly") || code=000
+            case "$code" in
+              200|201) echo "ok   report $code" ;;
+              *) echo "FAIL report: $code"; exit 1 ;;
+            esac

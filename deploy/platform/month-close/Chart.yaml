@@ -1,0 +1,5 @@
+apiVersion: v2
+name: month-close
+description: CronWorkflow that recounts the changed months, then asks reporting for one month
+type: application
+version: 0.1.0
