@@ -9,7 +9,9 @@ metadata:
     app.kubernetes.io/name: month-close
     app.kubernetes.io/part-of: ff-logistics
 spec:
-  schedule: {{ .Values.schedule | quote }}
+  # 4.1 requires the list. One entry: the value file's schedule.
+  schedules:
+    - {{ .Values.schedule | quote }}
   timezone: UTC
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 0
