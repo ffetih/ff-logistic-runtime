@@ -12,7 +12,6 @@ spec:
     native:
       replicas: 3
       auth: none
-      antiAffinity: false
       containerTemplate:
         resources:
           requests:

@@ -47,5 +47,3 @@ spec:
                 dependencyName: report-ready
                 dataKey: body.objectKey
               dest: spec.arguments.parameters.0.value
-        retryStrategy:
-          steps: 3
