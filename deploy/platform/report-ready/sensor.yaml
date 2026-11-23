@@ -30,6 +30,7 @@ spec:
                   app.kubernetes.io/name: report-ready
                   app.kubernetes.io/part-of: ff-logistics
               spec:
+                serviceAccountName: workflow-runner
                 entrypoint: log-key
                 activeDeadlineSeconds: 60
                 arguments:

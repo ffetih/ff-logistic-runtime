@@ -11,7 +11,7 @@ spec:
   nats:
     native:
       replicas: 3
-      auth: none
+      auth: token
       containerTemplate:
         resources:
           requests:

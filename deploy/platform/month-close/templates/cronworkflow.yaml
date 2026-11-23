@@ -18,6 +18,7 @@ spec:
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   workflowSpec:
+    serviceAccountName: month-close
     entrypoint: close
     activeDeadlineSeconds: 120
     templates:
@@ -46,7 +47,11 @@ spec:
               value: {{ .Values.reportingUrl | quote }}
           source: |
             set -eu
-            [ -n "$MONTH" ] || { echo "FAIL month is empty"; exit 1; }
+            if [ -z "$MONTH" ]; then
+              # On the 1st of the month at 06:00 UTC, yesterday (UTC - 86400 s) is the closed month.
+              MONTH=$(date -u -d "@$(($(date -u +%s) - 86400))" +%Y-%m)
+            fi
+            echo "info month $MONTH"
             body=$(curl -sS --max-time 15 -H 'Content-Type: application/json' \
               -d "{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}" \
               "$IDENTITY_URL/sessions") || { echo "FAIL sign-in: no answer"; exit 1; }
