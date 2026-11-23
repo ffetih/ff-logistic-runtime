@@ -3,6 +3,7 @@
 schedule: "0 6 1 * *"
 month: ""
 
-identityUrl: http://identity.ff-logistics.svc.cluster.local:8085
-loaderUrl: http://analytics-loader.ff-logistics.svc.cluster.local:8086
-reportingUrl: http://reporting.ff-logistics.svc.cluster.local:8089
+# *.svc. The curl image does not resolve the same name with .cluster.local on the end.
+identityUrl: http://identity.ff-logistics.svc:8085
+loaderUrl: http://analytics-loader.ff-logistics.svc:8086
+reportingUrl: http://reporting.ff-logistics.svc:8089
