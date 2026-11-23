@@ -1,0 +1,8 @@
+# Close of a calendar month. The local file overrides the schedule and the month so a run
+# is visible without waiting for the 1st. The loader's five-minute recount is a different clock.
+schedule: "0 6 1 * *"
+month: ""
+
+identityUrl: http://identity.ff-logistics.svc.cluster.local:8085
+loaderUrl: http://analytics-loader.ff-logistics.svc.cluster.local:8086
+reportingUrl: http://reporting.ff-logistics.svc.cluster.local:8089

@@ -71,6 +71,12 @@ jobs:
           set -euo pipefail
           helm lint runtime/deploy/platform/edge
           helm template edge runtime/deploy/platform/edge > /dev/null
+      - name: The monthly close
+        run: |
+          set -euo pipefail
+          chart=runtime/deploy/platform/month-close
+          helm lint "$chart" -f "$chart/values.yaml" -f "$chart/values-local.yaml"
+          helm template month-close "$chart" -f "$chart/values.yaml" -f "$chart/values-local.yaml" > /dev/null
       - name: Kustomizations
         run: |
           set -euo pipefail
