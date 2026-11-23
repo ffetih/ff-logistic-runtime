@@ -19,6 +19,7 @@ What FF Logistic runs but does not write: one k3d cluster, Argo CD, and the plat
 | `argo-workflows` | Argo Workflows 4.1.6, the workflow controller. No Workflow is installed with it | |
 | `argo-events` | Argo Events 1.9.11, the event controller. No EventSource is installed with it | |
 | `month-close` | CronWorkflow in `argo`: recount the changed months, then ask reporting for the month in its values. Local values use a two-minute schedule and `2026-11` | |
+| `report-ready` | EventSource and Sensor on `ff.logistics.reporting.report-ready`. One message submits one Workflow that logs the object key | |
 | `identity` | The identity service (built in ff-logistic-shared) | | 8085
 | `analytics-loader` | The analytics loader (built in ff-logistic-shared): Kafka into its own database, `ff_logistics_analytics`, which its PreSync Job creates. Like `identity`, it runs whichever side is active | | 8086
 | `edge` | The one entry point, whichever implementation is active; its PostSync smoke test checks the side that answers | | 8081
@@ -36,6 +37,7 @@ flowchart TB
   R --> AR[argo-rollouts]
   R --> AW["argo-workflows · argo-events"]
   R --> MC["month-close"]
+  R --> RR["report-ready"]
   R --> S["identity · analytics-loader · edge"]
   R --> AS["ff-implementation<br/>ApplicationSet"]
   AS --> IMPL["the active side's Applications"]

@@ -1,0 +1,19 @@
+# report-ready (S14-03). An EventSource and a Sensor in ff-logistics: a Kafka message
+# submits one Workflow that logs the object key. Manual sync. The controllers are the
+# argo-events and argo-workflows Applications.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: report-ready
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/report-ready
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
