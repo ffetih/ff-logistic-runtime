@@ -7,6 +7,9 @@
 # annotation a client-side apply keeps. After that first apply, Argo CD manages
 # this folder itself (apps/argocd.yaml): an upgrade is a commit that changes the
 # version below, then a sync.
+#
+# deploy/argocd/staging repeats the list below without root.yaml, for the staging
+# cluster. An upgrade changes the version in both files.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 

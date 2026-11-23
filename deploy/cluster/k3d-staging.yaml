@@ -1,0 +1,35 @@
+# Second cluster: Argo CD and the Application being promoted. No Superset.
+#
+#   k3d cluster create --config deploy/cluster/k3d-staging.yaml
+#   kubectl kustomize deploy/argocd/staging --load-restrictor LoadRestrictionsNone \
+#     | kubectl apply --server-side --force-conflicts -f -
+#   kubectl apply -f deploy/argocd/apps/project-ff-logistics.yaml
+#   kubectl apply -f deploy/cluster/staging-mailpit.yaml
+#
+# Argo CD: http://127.0.0.1:18080. Host port 18080, so ff-logistic keeps 8080.
+# Mailpit's NodePort is not published here.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: ff-logistic-staging
+servers: 1
+agents: 0
+image: rancher/k3s:v1.37.2-k3s1
+ports:
+  - port: 18080:30080   # Argo CD UI
+    nodeFilters:
+      - server:0
+options:
+  k3d:
+    wait: true
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:0
+      - arg: --disable=servicelb
+        nodeFilters:
+          - server:0
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true

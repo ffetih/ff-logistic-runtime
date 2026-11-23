@@ -80,8 +80,12 @@ jobs:
       - name: Kustomizations
         run: |
           set -euo pipefail
-          for dir in argocd platform/argo-rollouts platform/argo-workflows platform/argo-events platform/report-ready platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset platform/jaeger platform/mailpit; do
-            echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" | grep -c '^kind:') objects"
+          for dir in argocd argocd/staging platform/argo-rollouts platform/argo-workflows platform/argo-events platform/report-ready platform/postgres platform/keycloak platform/kafka platform/rustfs platform/superset platform/jaeger platform/mailpit; do
+            restrictor=()
+            if [ "$dir" = argocd/staging ]; then
+              restrictor=(--load-restrictor LoadRestrictionsNone)
+            fi
+            echo "deploy/$dir: $(kubectl kustomize "runtime/deploy/$dir" "${restrictor[@]}" | grep -c '^kind:') objects"
           done
       - name: The analytics scope guard
         env:
