@@ -1,0 +1,16 @@
+# Argo Workflows controller, server and CRDs, pinned. Applied by the argo-workflows
+# Application (deploy/argocd/apps/argo-workflows.yaml). An upgrade is a commit that
+# changes the version below, then a sync of that Application.
+#
+# The upstream install does not let a workflow's own service account record its result.
+# workflow-executor.yaml grants that to the default account in this namespace, which is
+# what a hand-submitted Workflow uses. No Workflow is installed here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argo
+
+resources:
+  - namespace.yaml
+  - workflow-executor.yaml
+  - https://github.com/argoproj/argo-workflows/releases/download/v4.1.6/install.yaml

@@ -1,0 +1,22 @@
+# Argo Workflows (S14-01). Cluster-wide CRDs, so the default project, like argo-rollouts.
+# Manual sync. Server-side apply: the Workflow CRDs are too large for the last-applied
+# annotation. No Workflow is part of this Application.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/argo-workflows
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true

@@ -1,0 +1,11 @@
+# Argo Events controller and CRDs, pinned. Applied by the argo-events Application
+# (deploy/argocd/apps/argo-events.yaml). An upgrade is a commit that changes the version
+# below, then a sync of that Application. No EventSource and no Sensor in this folder.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argo-events
+
+resources:
+  - namespace.yaml
+  - https://github.com/argoproj/argo-events/releases/download/v1.9.11/install.yaml

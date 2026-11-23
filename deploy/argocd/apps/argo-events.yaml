@@ -1,0 +1,22 @@
+# Argo Events (S14-01). Cluster-wide CRDs, so the default project, like argo-rollouts.
+# Manual sync. Server-side apply: the EventSource and Sensor CRDs are large. No
+# EventSource and no Sensor are part of this Application.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-events
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: main
+    path: deploy/platform/argo-events
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-events
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
