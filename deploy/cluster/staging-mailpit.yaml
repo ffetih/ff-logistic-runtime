@@ -1,0 +1,21 @@
+# Applied on ff-logistic-staging only. ff-root does not read this folder.
+# The revision is the one staging syncs before ff-logistic is moved to it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailpit
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  project: ff-logistics
+  source:
+    repoURL: https://github.com/ffetih/ff-logistic-runtime.git
+    targetRevision: cb79bd0913230cddc133c33211b16e2f70772721
+    path: deploy/platform/mailpit
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ff-logistics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
