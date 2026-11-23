@@ -1,0 +1,16 @@
+# A Kafka message on ff.logistics.reporting.report-ready starts one Workflow (S14-03).
+# Applied by the report-ready Application. The controllers stay in deploy/platform/argo-events
+# and deploy/platform/argo-workflows; this folder is only the bus, the source and the sensor.
+#
+# The pods run in ff-logistics, next to the broker. The broker tells clients to call
+# kafka-0.kafka:9092, and that name resolves in this namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ff-logistics
+
+resources:
+  - serviceaccount.yaml
+  - eventbus.yaml
+  - eventsource.yaml
+  - sensor.yaml

@@ -1,0 +1,21 @@
+# Reads ff.logistics.reporting.report-ready from the end. A message already on the topic
+# is left to reporting-delivery. This group is its own, so that consumer's lag is untouched.
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: report-ready
+  labels:
+    app.kubernetes.io/name: report-ready
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  template:
+    serviceAccountName: report-ready
+  kafka:
+    report-ready:
+      url: kafka:9092
+      topic: ff.logistics.reporting.report-ready
+      jsonBody: true
+      consumerGroup:
+        groupName: report-ready-events
+        oldest: false
+        rebalanceStrategy: range

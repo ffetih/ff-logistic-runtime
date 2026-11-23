@@ -1,0 +1,51 @@
+# One message, one Workflow. The workflow prints the object key and exits. The PDF stays
+# in RustFS. Delivery stays the only sender; this sensor does not write to it.
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: report-ready
+  labels:
+    app.kubernetes.io/name: report-ready
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  template:
+    serviceAccountName: report-ready
+  dependencies:
+    - name: report-ready
+      eventSourceName: report-ready
+      eventName: report-ready
+  triggers:
+    - template:
+        name: log-object-key
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: report-ready-
+                namespace: ff-logistics
+                labels:
+                  app.kubernetes.io/name: report-ready
+                  app.kubernetes.io/part-of: ff-logistics
+              spec:
+                entrypoint: log-key
+                activeDeadlineSeconds: 60
+                arguments:
+                  parameters:
+                    - name: object-key
+                      value: ""
+                templates:
+                  - name: log-key
+                    container:
+                      image: busybox:1.36
+                      command: [echo]
+                      args: ["object-key", "{{workflow.parameters.object-key}}"]
+          parameters:
+            - src:
+                dependencyName: report-ready
+                dataKey: body.objectKey
+              dest: spec.arguments.parameters.0.value
+        retryStrategy:
+          steps: 3

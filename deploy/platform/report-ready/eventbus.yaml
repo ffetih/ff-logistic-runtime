@@ -1,0 +1,22 @@
+# The bus the event source and the sensor share. Three replicas is what this controller
+# runs; one node holds all of them. Nothing is stored past a restart: Kafka keeps the offset.
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  labels:
+    app.kubernetes.io/name: report-ready
+    app.kubernetes.io/part-of: ff-logistics
+spec:
+  nats:
+    native:
+      replicas: 3
+      auth: none
+      antiAffinity: false
+      containerTemplate:
+        resources:
+          requests:
+            cpu: 20m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
