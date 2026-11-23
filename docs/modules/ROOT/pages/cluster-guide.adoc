@@ -99,7 +99,7 @@ kubectl get nodes                  # Ready
 ----
 
 The pods come back on their own within a few minutes; some restart once while PostgreSQL starts.
-Keep one k3d cluster running at a time: two clusters cannot both publish `8080`.
+`ff-logistic` publishes `8080`. `ff-logistic-staging` publishes `18080` (`deploy/cluster/k3d-staging.yaml`), so the two run together. A second cluster that also publishes `8080` will not start.
 
 === The load balancer does not get ready
 
