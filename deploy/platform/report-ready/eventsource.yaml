@@ -15,7 +15,7 @@ spec:
       url: kafka:9092
       topic: ff.logistics.reporting.report-ready
       jsonBody: true
+      # oldest is left unset: false is the default (from the end) and the controller drops it.
       consumerGroup:
         groupName: report-ready-events
-        oldest: false
         rebalanceStrategy: range
